@@ -1,0 +1,19 @@
+Proposal Requirements 
+
+· clearly identify the measurable goals and success criteria for your project (i.e., the so-called functional and non-functional requirements),
+· identify metrics for the evaluation of the progress of the project,
+· what skills you acquired in your degree program you plan to bring to bear on your project, and
+· how the group, collectively, has the required skills to address the identified problem. You need to identify specific methods to solving your problem, have considered how to organize your group work, and developed a realistic schedule for achieving your goals.
+
+A typical proposal contains:
+1.      The title of the project, your names and student numbers, and your supervisor’s name.
+2.      A clear statement of the objectives of the project. This needs to include both measurable functional and non-functional requirements, and a description of how you plan to measure progress towards these objectives.
+3.      A brief background of the project. Background should identify what has been done to address the problem, what the state of the art is, etc.
+4.      A brief description of what you are going to do.
+5.      A discussion of how the project relates to the degree program of each student. A student in undergraduate program X should be able to demonstrably state that their planned role in the project is primarily in relation to X.
+6.      A discussion of how the group, collectively, has the skills required to undertake the project.
+7.      A description of the method(s) you are going to use in solving the problem and how they relate to knowledge you acquired in your degree program to-date.
+8.      A proposed timetable for completion of the project including major intermediate milestones.
+9.      A discussion of possible project risks and mitigation strategies.
+10.  A list of special components and facilities that you require.
+11.  A list of reference works, cited in the text (particularly in the Introduction and Background sections, but also everywhere else). The only things that should be cited are: books, scientific articles (journals and conferences), and patents. A good rule of thumb is: if it shows up in Google Scholar, it can be cited; otherwise, no. There are exceptions: some newspaper articles or websites can be cited. But, these should be exceptions. Whilst there is no hard rule about the number of references, we expect a well written proposal to provide a reference to any (a) technical terms/technologies that are not self-explanatory, (b) work done by third parties that is not necessarily known by the readers and (c) context for the application of specific engineering in society/economy.

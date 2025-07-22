@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/CMakeFiles/bootloader
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/CMakeFiles/bootloader.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/CMakeFiles/bootloader-complete.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule

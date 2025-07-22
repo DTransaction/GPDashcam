@@ -1,0 +1,2 @@
+source /home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/gdbinit/symbols
+source /home/danny/esp/esp-idf/examples/peripherals/uart/nmea0183_parser/build/gdbinit/connect
