@@ -14,60 +14,16 @@
 #include "driver/sdmmc_host.h"
 #include "sd_test_io.h"
 #include "sd.h"
-#include "gps.h"
-#include "esp_camera.h"
-
-static esp_err_t append_file(const char *path, char *data) {
-    ESP_LOGI(SD_TAG, "Opening file %s", path);
-    FILE *f = fopen(path, "a");
-    if (f == NULL) {
-        ESP_LOGE(SD_TAG, "Failed to open file for writing");
-        return ESP_FAIL;
-    }
-    fprintf(f, data);
-    fclose(f);
-    ESP_LOGI(SD_TAG, "File written");
-
-    return ESP_OK;
-}
-
-static esp_err_t read_file(const char *path) {
-    ESP_LOGI(SD_TAG, "Reading file %s", path);
-    FILE *f = fopen(path, "r");
-    if (f == NULL) {
-        ESP_LOGE(SD_TAG, "Failed to open file for reading");
-        return ESP_FAIL;
-    }
-    char line[MAX_CHAR_SIZE];
-    fgets(line, sizeof(line), f);
-    fclose(f);
-
-    // strip newline
-    char *pos = strchr(line, '\n');
-    if (pos) {
-        *pos = '\0';
-    }
-    ESP_LOGI(SD_TAG, "Read from file: '%s'", line);
-
-    return ESP_OK;
-}
+#include "esp_timer.h"
+#include "esp_random.h"
 
 void sd_task(void *args) { 
-	QueueHandle_t **queues = (QueueHandle_t **)args; 
-	QueueHandle_t *gps_to_sd_queue = queues[0]; 
-	QueueHandle_t *camera_to_sd_queue = queues[1]; 
-
-	gps_data_t *gps_data = malloc(sizeof(gps_data_t)); 
-	camera_fb_t *camera_fb = malloc(sizeof(camera_fb_t)); 
-
-	char data[MAX_CHAR_SIZE];
-	const char *GPS_FILE_PATH = MOUNT_POINT"/gps_data.log"; 
-	const char *CAMERA_FILE_PATH = MOUNT_POINT"/image.jpg"; 
+	const char *VIDEO_FILE_PATH = MOUNT_POINT"/4MB_file.bin";
 
     esp_err_t ret;
 	sdmmc_card_t *card;
 	sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-	host.max_freq_khz = SDMMC_FREQ_DEFAULT; // 20 MHz
+	host.max_freq_khz = 40000000; // 20 MHz
 
     // Options for mounting the filesystem.
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
@@ -83,7 +39,8 @@ void sd_task(void *args) {
     slot_config.flags |= SDMMC_SLOT_FLAG_UHS1;
 #endif
 
-    slot_config.width = 4;
+    /*slot_config.width = 1;*/
+	slot_config.width = 4;
 	slot_config.clk = CONFIG_CLK_PIN_NUM;
     slot_config.cmd = CONFIG_CMD_PIN_NUM;
     slot_config.d0  = CONFIG_D0_PIN_NUM;
@@ -108,40 +65,62 @@ void sd_task(void *args) {
     // Card has been initialized, print its properties
     sdmmc_card_print_info(stdout, card);
 
-	while (1) { 
-		// GPS data logging 
-		if (xQueueReceive(*gps_to_sd_queue, gps_data, 0)) {
-			snprintf(data, MAX_CHAR_SIZE, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %.02f degrees, heading %s\n", 
-						gps_data->day, 
-						gps_data->month, 
-						gps_data->year, 
-						gps_data->hour, 
-						gps_data->minute, 
-						gps_data->second, 
-						gps_data->latitude,
-						gps_data->longitude,
-						gps_data->speed,
-						gps_data->cog,
-						gps_data->direction
-						); 
-			ret = append_file(GPS_FILE_PATH, data); 
-			if (ret != ESP_OK) return;
-
-			// Open file for reading
-			ret = read_file(GPS_FILE_PATH);
-			if (ret != ESP_OK) return;
-		}
-
-		if (xQueueReceive(*camera_to_sd_queue, camera_fb, 1000)) {
-			FILE *file = fopen(CAMERA_FILE_PATH, "w"); 
-			fwrite(camera_fb->buf, 1, camera_fb->len, file); 
-			fclose(file); 
-			ESP_LOGI(SD_TAG, "Image saved to %s", CAMERA_FILE_PATH); 
-		}
-		vTaskDelay(pdMS_TO_TICKS(200));
+	float test_result; 
+	float test_average = 0; 
+	char *item = (char *)malloc(1024*16); // 16KB
+	char *item2 = (char *)malloc(1024*16); // 16KB
+	if (item == NULL) { 
+		ESP_LOGI(SD_TAG, "Malloc failed"); 
 	}
+	if (item2 == NULL) { 
+		ESP_LOGI(SD_TAG, "Malloc failed"); 
+	}
+
+	// Reading 
+	for (uint8_t test_run = 0; test_run < 1; ++test_run) { 
+		FILE *test_file = fopen(VIDEO_FILE_PATH, "rb"); 
+		if (test_file == NULL) { 
+			ESP_LOGE(SD_TAG, "Unable to open file");
+		}
+
+		for (uint16_t i = 1; i<250; ++i) { 
+			if (i == 1) {
+				fread(item, 1024*16, 1, test_file); 
+				continue;
+			} else {
+				fread(item2, 1024*16, 1, test_file); 
+			}
+
+			if (strcmp(item, item2)) {
+				ESP_LOGW(SD_TAG, "Error when writing block"); 
+			} else {
+				ESP_LOGI(SD_TAG, "Block %d written correctly", i);
+			}
+		}
+		fclose(test_file); 
+	}
+
+	// Writing 
+	/*for (uint8_t test_run = 0; test_run < 1; ++test_run) { */
+	/*	FILE *test_file = fopen(VIDEO_FILE_PATH, "w"); */
+	/*	esp_fill_random(item, 1024*16);*/
+	/**/
+	/*	int64_t start_time = esp_timer_get_time(); */
+	/*	for (uint16_t i = 1; i<250; ++i) { // Write 16KB * 250 = 4MB*/
+	/*		fwrite(item, 1024*16, 1, test_file); */
+	/*	}*/
+	/*	int64_t end_time = esp_timer_get_time(); */
+	/*	test_result = 4./(((float)(end_time-start_time))/1000000); */
+	/*	test_average += test_result; */
+	/*	ESP_LOGI(SD_TAG, "Writing 4MB in %lld milliseconds (%.2fMB/s)", (end_time-start_time)/1000, test_result);*/
+	/*	fclose(test_file); */
+	/*}*/
+
+	test_average /= 8;
+	ESP_LOGI(SD_TAG, "Average write speed after 8 test runs: %.2fMB/s", test_average); 
 
 	// Unmount partition and disable SDMMC peripheral
 	esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
 	ESP_LOGI(SD_TAG, "Card unmounted");
+	vTaskDelay(portMAX_DELAY);
 }

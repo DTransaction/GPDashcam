@@ -1,23 +1,5 @@
 menu "GPDashcam Configuration"
 
-    config RX_PIN_NUM
-        int "RX pin number"
-        default 42
-        help
-            GPIO number for UART RX pin
-
-    config SDA_PIN_NUM
-        int "SDA pin number"
-        default 1
-        help
-			GPIO number for i2c SDA pin
-
-    config SCL_PIN_NUM
-        int "SCL pin number"
-        default 2
-        help
-			GPIO number for i2c SCL pin
-
     choice SDMMC_BUS_WIDTH
         prompt "SD/MMC bus width"
         default SDMMC_BUS_WIDTH_4

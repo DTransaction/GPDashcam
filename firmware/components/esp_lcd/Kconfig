@@ -1,8 +1,0 @@
-menu "ESP-Driver:LCD Controller Configurations"
-    config LCD_ENABLE_DEBUG_LOG
-        bool "Enable debug log"
-        default n
-        help
-            whether to enable the debug log message for LCD driver.
-            Note that, this option only controls the LCD driver log, won't affect other drivers.
-endmenu
