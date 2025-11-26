@@ -23,7 +23,7 @@ void sd_task(void *args) {
     esp_err_t ret;
 	sdmmc_card_t *card;
 	sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-	host.max_freq_khz = 40000000; // 20 MHz
+	host.max_freq_khz = 20000; 
 
     // Options for mounting the filesystem.
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
@@ -35,9 +35,6 @@ void sd_task(void *args) {
 
 	ESP_LOGI(SD_TAG, "Initializing SD card");
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-#if IS_UHS1
-    slot_config.flags |= SDMMC_SLOT_FLAG_UHS1;
-#endif
 
     /*slot_config.width = 1;*/
 	slot_config.width = 4;
@@ -60,6 +57,11 @@ void sd_task(void *args) {
         }
         return;
     }
+	ret = esp_vfs_fat_sdcard_format(MOUNT_POINT, card);
+	if (ret != ESP_OK) {
+		ESP_LOGE(SD_TAG, "Failed to format FATFS (%s)", esp_err_to_name(ret));
+		return;
+	}
     ESP_LOGI(SD_TAG, "Filesystem mounted");
 
     // Card has been initialized, print its properties
@@ -67,54 +69,52 @@ void sd_task(void *args) {
 
 	float test_result; 
 	float test_average = 0; 
-	char *item = (char *)malloc(1024*16); // 16KB
-	char *item2 = (char *)malloc(1024*16); // 16KB
-	if (item == NULL) { 
+	char *first_block = (char *)malloc(1024*16); // 16KB
+	char *current_block = (char *)malloc(1024*16); // 16KB
+	if (first_block == NULL) { 
 		ESP_LOGI(SD_TAG, "Malloc failed"); 
 	}
-	if (item2 == NULL) { 
+	if (current_block == NULL) { 
 		ESP_LOGI(SD_TAG, "Malloc failed"); 
 	}
 
-	// Reading 
-	for (uint8_t test_run = 0; test_run < 1; ++test_run) { 
-		FILE *test_file = fopen(VIDEO_FILE_PATH, "rb"); 
+	for (uint8_t test_run = 0; test_run < 8; ++test_run) { 
+		FILE *test_file = fopen(VIDEO_FILE_PATH, "wb"); 
 		if (test_file == NULL) { 
 			ESP_LOGE(SD_TAG, "Unable to open file");
 		}
+		esp_fill_random(first_block, 1024*16);
 
-		for (uint16_t i = 1; i<250; ++i) { 
-			if (i == 1) {
-				fread(item, 1024*16, 1, test_file); 
-				continue;
-			} else {
-				fread(item2, 1024*16, 1, test_file); 
-			}
-
-			if (strcmp(item, item2)) {
-				ESP_LOGW(SD_TAG, "Error when writing block"); 
-			} else {
-				ESP_LOGI(SD_TAG, "Block %d written correctly", i);
-			}
+		int64_t start_time = esp_timer_get_time(); 
+		// Writing 
+		for (uint16_t i = 0; i<250; ++i) { // Write 16KB * 250 = 4MB
+			fwrite(first_block, 1024*16, 1, test_file); 
 		}
+		int64_t end_time = esp_timer_get_time(); 
+		test_result = 4./(((float)(end_time-start_time))/1000000); 
+		test_average += test_result; 
+		fclose(test_file);
+
+		// Reading
+		test_file = fopen(VIDEO_FILE_PATH, "rb"); 
+		uint8_t bad_block_flag = 0; 
+		for (uint16_t i = 0; i<250; ++i) { 
+			fread(current_block, 1024*16, 1, test_file); 
+
+			if (strcmp(current_block, first_block)) {
+				ESP_LOGE(SD_TAG, "Error when writing block %d", i); 
+				bad_block_flag = 1; 
+			} 
+		}
+
+		if (bad_block_flag) { 
+			ESP_LOGW(SD_TAG, "Error when writing blocks to file"); 
+		} else {
+			ESP_LOGI(SD_TAG, "Wrote 4MB in %lld milliseconds (%.2fMB/s) with no errors", (end_time-start_time)/1000, test_result);
+		}
+
 		fclose(test_file); 
 	}
-
-	// Writing 
-	/*for (uint8_t test_run = 0; test_run < 1; ++test_run) { */
-	/*	FILE *test_file = fopen(VIDEO_FILE_PATH, "w"); */
-	/*	esp_fill_random(item, 1024*16);*/
-	/**/
-	/*	int64_t start_time = esp_timer_get_time(); */
-	/*	for (uint16_t i = 1; i<250; ++i) { // Write 16KB * 250 = 4MB*/
-	/*		fwrite(item, 1024*16, 1, test_file); */
-	/*	}*/
-	/*	int64_t end_time = esp_timer_get_time(); */
-	/*	test_result = 4./(((float)(end_time-start_time))/1000000); */
-	/*	test_average += test_result; */
-	/*	ESP_LOGI(SD_TAG, "Writing 4MB in %lld milliseconds (%.2fMB/s)", (end_time-start_time)/1000, test_result);*/
-	/*	fclose(test_file); */
-	/*}*/
 
 	test_average /= 8;
 	ESP_LOGI(SD_TAG, "Average write speed after 8 test runs: %.2fMB/s", test_average); 
