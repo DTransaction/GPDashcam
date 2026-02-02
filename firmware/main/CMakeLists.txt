@@ -7,6 +7,6 @@ idf_component_register(
 	"sd_task.c"
 	"camera.c"
 	INCLUDE_DIRS "../include"
-	REQUIRES fatfs sd_card esp_lcd 
+	REQUIRES fatfs esp_lcd 
 	WHOLE_ARCHIVE)
 set(COMPONENT_KCONFIG main/Kconfig)

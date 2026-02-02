@@ -12,7 +12,6 @@
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 #include "driver/sdmmc_host.h"
-#include "sd_test_io.h"
 #include "sd.h"
 #include "gps.h"
 #include "esp_camera.h"
