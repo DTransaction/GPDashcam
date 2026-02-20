@@ -12,6 +12,7 @@
 #define MAIN_TAG "MAIN_TASK"
 
 void app_main(void) {
+	mount_sd(); 
 	// Initialize I2C bus 
 	ESP_LOGI(MAIN_TAG, "Initialize I2C bus");
 	i2c_master_bus_handle_t i2c_bus;

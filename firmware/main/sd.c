@@ -51,18 +51,7 @@ static esp_err_t read_file(const char *path) {
     return ESP_OK;
 }
 
-void sd_task(void *args) { 
-	QueueHandle_t **queues = (QueueHandle_t **)args; 
-	QueueHandle_t *gps_to_sd_queue = queues[0]; 
-	QueueHandle_t *camera_to_sd_queue = queues[1]; 
-
-	gps_data_t *gps_data = malloc(sizeof(gps_data_t)); 
-	camera_fb_t *camera_fb = malloc(sizeof(camera_fb_t)); 
-
-	char data[MAX_CHAR_SIZE];
-	const char *GPS_FILE_PATH = MOUNT_POINT"/gps_data.log"; 
-	const char *CAMERA_FILE_PATH = MOUNT_POINT"/image.jpg"; 
-
+void mount_sd() { 
     esp_err_t ret;
 	sdmmc_card_t *card;
 	sdmmc_host_t host = SDMMC_HOST_DEFAULT();
@@ -75,13 +64,8 @@ void sd_task(void *args) {
         .allocation_unit_size = 16 * 1024
     };
 
-
 	ESP_LOGI(SD_TAG, "Initializing SD card");
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-#if IS_UHS1
-    slot_config.flags |= SDMMC_SLOT_FLAG_UHS1;
-#endif
-
     slot_config.width = 4;
 	slot_config.clk = CONFIG_CLK_PIN_NUM;
     slot_config.cmd = CONFIG_CMD_PIN_NUM;
@@ -89,7 +73,6 @@ void sd_task(void *args) {
     slot_config.d1 = CONFIG_D1_PIN_NUM;
     slot_config.d2 = CONFIG_D2_PIN_NUM;
     slot_config.d3 = CONFIG_D3_PIN_NUM;
-
 
     ESP_LOGI(SD_TAG, "Mounting filesystem");
     ret = esp_vfs_fat_sdmmc_mount(MOUNT_POINT, &host, &slot_config, &mount_config, &card);
@@ -106,6 +89,20 @@ void sd_task(void *args) {
 
     // Card has been initialized, print its properties
     sdmmc_card_print_info(stdout, card);
+}
+
+void sd_task(void *args) { 
+    esp_err_t ret;
+	QueueHandle_t **queues = (QueueHandle_t **)args; 
+	QueueHandle_t *gps_to_sd_queue = queues[0]; 
+	QueueHandle_t *camera_to_sd_queue = queues[1]; 
+
+	gps_data_t *gps_data = malloc(sizeof(gps_data_t)); 
+	camera_fb_t *camera_fb = malloc(sizeof(camera_fb_t)); 
+
+	char data[MAX_CHAR_SIZE];
+	const char *GPS_FILE_PATH = MOUNT_POINT"/gps_data.log"; 
+	const char *CAMERA_FILE_PATH = MOUNT_POINT"/image.jpg"; 
 
 	while (1) { 
 		// GPS data logging 
@@ -137,10 +134,9 @@ void sd_task(void *args) {
 			fclose(file); 
 			ESP_LOGI(SD_TAG, "Image saved to %s", CAMERA_FILE_PATH); 
 		}
-		vTaskDelay(pdMS_TO_TICKS(200));
+		ESP_LOGI(SD_TAG, "Stack high water mark: %d", uxTaskGetStackHighWaterMark(NULL)); 
 	}
-
 	// Unmount partition and disable SDMMC peripheral
-	esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
-	ESP_LOGI(SD_TAG, "Card unmounted");
+	// esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
+	// ESP_LOGI(SD_TAG, "Card unmounted");
 }
