@@ -14,10 +14,7 @@
 #include "nvs_flash.h"
 #include "softap.h"
 #include "file_serving_example_common.h"
-#include "protocol_examples_common.h"
 
-#include "esp_log.h"
-#include "esp_err.h"
 #define MAIN_TAG "MAIN_TASK"
 
 void mount_sd(sdmmc_card_t* card) { 
