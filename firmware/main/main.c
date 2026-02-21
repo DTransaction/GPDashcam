@@ -162,7 +162,10 @@ void app_main(void) {
 	while(1){ 
 		vTaskDelay(pdMS_TO_TICKS(10000));
 	}
-	free(gps_to_display_queue); 
+	ESP_LOGE(MAIN_TAG, "Main task exited unexpectedly"); 
 	free(accel_to_display_queue); 
+	free(gps_to_display_queue); 
+	free(gps_to_sd_queue); 
+	free(camera_to_sd_queue); 
 }
 
