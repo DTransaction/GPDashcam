@@ -4,7 +4,7 @@ idf_component_register(
 	"accelerometer_task.c"
 	"gps_task.c"
 	"display_task.c"
-	"sd_task.c"
+	"sd.c"
 	"camera.c"
 	INCLUDE_DIRS "../include"
 	REQUIRES fatfs esp_lcd 
