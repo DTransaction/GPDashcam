@@ -6,12 +6,6 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#include <string.h>
-#include <sys/unistd.h>
-#include <sys/stat.h>
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
 #include "sd.h"
 #include "gps.h"
 #include "esp_camera.h"
@@ -96,7 +90,4 @@ void sd_task(void *args) {
 		}
 		ESP_LOGI(SD_TAG, "Stack high water mark: %d", uxTaskGetStackHighWaterMark(NULL)); 
 	}
-	// Unmount partition and disable SDMMC peripheral
-	// esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
-	// ESP_LOGI(SD_TAG, "Card unmounted");
 }

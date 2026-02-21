@@ -5,3 +5,5 @@ build/
 *.exe
 *.old
 *sdkconfig
+*managed_components/
+*.lock
