@@ -33,8 +33,6 @@ extern "C" {
 
 #define SD_TAG "SD_TASK"
 
-void mount_sd(); 
-
 /**
  * @brief SD card main task: initializes, mounts, reads/writes test files, and unmounts
  *
