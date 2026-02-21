@@ -1,82 +1,93 @@
-menu "GPDashcam Configuration"
-
-    config RX_PIN_NUM
-        int "RX pin number"
-        default 42
-        help
-            GPIO number for UART RX pin
-
-    config SDA_PIN_NUM
-        int "SDA pin number"
-        default 1
-        help
-			GPIO number for i2c SDA pin
-
-    config SCL_PIN_NUM
-        int "SCL pin number"
-        default 2
-        help
-			GPIO number for i2c SCL pin
-
-    choice SDMMC_BUS_WIDTH
-        prompt "SD/MMC bus width"
-        default SDMMC_BUS_WIDTH_4
-
-        config SDMMC_BUS_WIDTH_4
-            bool "4 lines (D0 - D3)"
-
-        config SDMMC_BUS_WIDTH_1
-            bool "1 line (D0)"
-    endchoice
-
-    choice SDMMC_SPEED_MODE
-        prompt "SD/MMC speed mode"
-        default SDMMC_SPEED_DS
-
-        config SDMMC_SPEED_DS
-            bool "Default Speed"
-        config SDMMC_SPEED_HS
-            bool "High Speed"
-        config SDMMC_SPEED_UHS_I_SDR50
-            bool "UHS-I SDR50 (100 MHz, 50 MB/s)"
-            depends on SOC_SDMMC_UHS_I_SUPPORTED
-        config SDMMC_SPEED_UHS_I_DDR50
-            bool "UHS-I DDR50 (50 MHz, 50 MB/s)"
-            depends on SOC_SDMMC_UHS_I_SUPPORTED
-    endchoice
-
-    config CMD_PIN_NUM
-        int
-        prompt "CMD pin number" 
-        default 38
-
-    config CLK_PIN_NUM
-        int
-        prompt "CLK pin number"
-        default 39
-
-    config D0_PIN_NUM
-        int
-        prompt "D0 pin number"
-        default 47
-
-    if SDMMC_BUS_WIDTH_4
-
-        config D1_PIN_NUM
-            int
-            prompt "D1 pin number"
-            default 21 
-
-        config D2_PIN_NUM
-            int
-            prompt "D2 pin number"
-            default 41
-
-
-        config D3_PIN_NUM
-            int
-            prompt "D3 pin number"
-            default 40
-
-    endif  # SDMMC_BUS_WIDTH_4
+menu "GPDashcam configuration"
+	menu "Camera"
+		config XCLK_FREQ_MHZ
+			int "CLK_FREQ_MHZ"
+			default 5
+		config JPEG_QUALITY
+			int "JPEG_QUALITY"
+			default 20
+		config FB_COUNT
+			int "FB_COUNT"
+			default 3
+		menu "Camera pins"
+			config CAM_PIN_RESET   
+				int "CAM_PIN_RESET" 
+				default -1
+			config CAM_PIN_XCLK    
+				int "CAM_PIN_XCLK"
+				default 15
+			config CAM_PIN_SIOD    
+				int "CAM_PIN_SIOD"
+				default 4
+			config CAM_PIN_SIOC    
+				int "CAM_PIN_SIOC" 
+				default 5
+			config CAM_PIN_D0      
+				int "CAM_PIN_D0"
+				default 11
+			config CAM_PIN_D1      
+				int "CAM_PIN_D1"
+				default 9
+			config CAM_PIN_D2      
+				int "CAM_PIN_D2"
+				default 8
+			config CAM_PIN_D3      
+				int "CAM_PIN_D3"       
+				default 10
+			config CAM_PIN_D4      
+				int "CAM_PIN_D4"       
+				default 12
+			config CAM_PIN_D5      
+				int "CAM_PIN_D5"       
+				default 18
+			config CAM_PIN_D6      
+				int "CAM_PIN_D6"       
+				default 17
+			config CAM_PIN_D7      
+				int "CAM_PIN_D7"       
+				default 16
+			config CAM_PIN_VSYNC   
+				int "CAM_PIN_VSYNC"    
+				default 6
+			config CAM_PIN_HREF    
+				int "CAM_PIN_HREF"     
+				default 7
+			config CAM_PIN_PCLK    
+				int "CAM_PIN_PCLK"     
+				default 13
+		endmenu
+	endmenu
+	menu "I2C"
+		config SDA_PIN_NUM
+			int "SDA pin number"
+			default 1
+		config SCL_PIN_NUM
+			int "SCL pin number"
+			default 2
+	endmenu
+	menu "UART"
+		config RX_PIN_NUM
+			int "RX pin number"
+			default 42
+	endmenu
+	menu "SD"
+		config CMD_PIN_NUM
+			int "CMD pin number" 
+			default 38
+		config CLK_PIN_NUM
+			int "CLK pin number"
+			default 39
+		config D0_PIN_NUM
+			int "D0 pin number"
+			default 47
+		config D1_PIN_NUM
+			int "D1 pin number"
+			default 21 
+		config D2_PIN_NUM
+			int "D2 pin number"
+			default 41
+		config D3_PIN_NUM
+			int "D3 pin number"
+			default 40
+	endmenu
 endmenu

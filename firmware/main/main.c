@@ -11,23 +11,6 @@
 
 #define MAIN_TAG "MAIN_TASK"
 
-// ESP32S3 (WROOM) OV5640 pin mapping
-#define CAM_PIN_RESET   -1   // Software reset
-#define CAM_PIN_XCLK    15
-#define CAM_PIN_SIOD    4
-#define CAM_PIN_SIOC    5
-#define CAM_PIN_D0      11
-#define CAM_PIN_D1      9
-#define CAM_PIN_D2      8
-#define CAM_PIN_D3      10
-#define CAM_PIN_D4      12
-#define CAM_PIN_D5      18
-#define CAM_PIN_D6      17
-#define CAM_PIN_D7      16
-#define CAM_PIN_VSYNC   6
-#define CAM_PIN_HREF    7
-#define CAM_PIN_PCLK    13
-
 void mount_sd() { 
     esp_err_t ret;
 	sdmmc_card_t *card;
@@ -97,28 +80,28 @@ void init_uart() {
 }
 
 static camera_config_t camera_config = {
-    .pin_reset       = CAM_PIN_RESET,
-    .pin_xclk        = CAM_PIN_XCLK,
-    .pin_sccb_sda    = CAM_PIN_SIOD,
-    .pin_sccb_scl    = CAM_PIN_SIOC,
-    .pin_d7          = CAM_PIN_D7,
-    .pin_d6          = CAM_PIN_D6,
-    .pin_d5          = CAM_PIN_D5,
-    .pin_d4          = CAM_PIN_D4,
-    .pin_d3          = CAM_PIN_D3,
-    .pin_d2          = CAM_PIN_D2,
-    .pin_d1          = CAM_PIN_D1,
-    .pin_d0          = CAM_PIN_D0,
-    .pin_vsync       = CAM_PIN_VSYNC,
-    .pin_href        = CAM_PIN_HREF,
-    .pin_pclk        = CAM_PIN_PCLK,
-    .xclk_freq_hz    = 5000000,
+    .pin_reset       = CONFIG_CAM_PIN_RESET,
+    .pin_xclk        = CONFIG_CAM_PIN_XCLK,
+    .pin_sccb_sda    = CONFIG_CAM_PIN_SIOD,
+    .pin_sccb_scl    = CONFIG_CAM_PIN_SIOC,
+    .pin_d7          = CONFIG_CAM_PIN_D7,
+    .pin_d6          = CONFIG_CAM_PIN_D6,
+    .pin_d5          = CONFIG_CAM_PIN_D5,
+    .pin_d4          = CONFIG_CAM_PIN_D4,
+    .pin_d3          = CONFIG_CAM_PIN_D3,
+    .pin_d2          = CONFIG_CAM_PIN_D2,
+    .pin_d1          = CONFIG_CAM_PIN_D1,
+    .pin_d0          = CONFIG_CAM_PIN_D0,
+    .pin_vsync       = CONFIG_CAM_PIN_VSYNC,
+    .pin_href        = CONFIG_CAM_PIN_HREF,
+    .pin_pclk        = CONFIG_CAM_PIN_PCLK,
+    .xclk_freq_hz    = CONFIG_XCLK_FREQ_MHZ * 1000000,
     .ledc_timer      = LEDC_TIMER_0,
     .ledc_channel    = LEDC_CHANNEL_0,
-    .pixel_format    = PIXFORMAT_JPEG,  // JPEG works well for OV5640
+    .pixel_format    = PIXFORMAT_JPEG,
     .frame_size      = FRAMESIZE_QHD,
-    .jpeg_quality    = 20,
-    .fb_count        = 3
+    .jpeg_quality    = CONFIG_JPEG_QUALITY,
+    .fb_count        = CONFIG_FB_COUNT
 };
 
 static esp_err_t init_camera(void)
