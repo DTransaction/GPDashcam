@@ -9,6 +9,15 @@
 #include "camera.h"
 #include "esp_camera.h"
 
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "nvs_flash.h"
+#include "softap.h"
+#include "file_serving_example_common.h"
+#include "protocol_examples_common.h"
+
+#include "esp_log.h"
+#include "esp_err.h"
 #define MAIN_TAG "MAIN_TASK"
 
 void mount_sd() { 
@@ -29,7 +38,7 @@ void mount_sd() {
     slot_config.width = 4;
 	slot_config.clk = CONFIG_CLK_PIN_NUM;
     slot_config.cmd = CONFIG_CMD_PIN_NUM;
-    slot_config.d0  = CONFIG_D0_PIN_NUM;
+    slot_config.d0 = CONFIG_D0_PIN_NUM;
     slot_config.d1 = CONFIG_D1_PIN_NUM;
     slot_config.d2 = CONFIG_D2_PIN_NUM;
     slot_config.d3 = CONFIG_D3_PIN_NUM;
@@ -115,22 +124,30 @@ static esp_err_t init_camera(void)
     return err;
 }
 void app_main(void) {
+
+	// ESP_LOGI(MAIN_TAG, "Initialize I2C bus");
+	// i2c_master_bus_handle_t i2c_bus;
+	// init_i2c(&i2c_bus); 
+	//
+	// ESP_LOGI(MAIN_TAG, "Initialize UART1");
+	// init_uart(); 
+	//
+	// ESP_LOGI(MAIN_TAG, "Initialize camera"); 
+	//    if (init_camera() != ESP_OK) {
+	//        ESP_LOGE(CAMERA_TAG, "Failed to initialize camera");
+	//        return;
+	//    }
+
+	ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
 	ESP_LOGI(MAIN_TAG, "Initialize and mount SD card");
 	mount_sd(); 
+    wifi_init_softap();
+    const char* base_path = "/sdcard";
+    ESP_ERROR_CHECK(example_start_file_server(base_path));
 
-	ESP_LOGI(MAIN_TAG, "Initialize I2C bus");
-	i2c_master_bus_handle_t i2c_bus;
-	init_i2c(&i2c_bus); 
-
-	ESP_LOGI(MAIN_TAG, "Initialize UART1");
-	init_uart(); 
-
-	ESP_LOGI(MAIN_TAG, "Initialize camera"); 
-    if (init_camera() != ESP_OK) {
-        ESP_LOGE(CAMERA_TAG, "Failed to initialize camera");
-        return;
-    }
-
+	/*
 	ESP_LOGI(MAIN_TAG, "Create queues");
 	QueueHandle_t accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
 	QueueHandle_t gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 
@@ -153,19 +170,23 @@ void app_main(void) {
 	display_args->queues[1] = &gps_to_display_queue;
 
 	ESP_LOGI(MAIN_TAG, "Creating tasks");
-	xTaskCreate(accelerometer_task, ACCEL_TAG, 2500, accel_args, 4, NULL); 
-	xTaskCreate(gps_task, GPS_TAG, 4500, gps_args, 4, NULL);
-    xTaskCreate(display_task, DISPLAY_TAG, 4096, display_args, 4, NULL);
-    xTaskCreate(sd_task, SD_TAG, 4096, sd_args, 4, NULL);
-	xTaskCreate(camera_task, CAMERA_TAG, 4096, camera_args, 5, NULL); 
+	// xTaskCreate(accelerometer_task, ACCEL_TAG, 2500, accel_args, 4, NULL); 
+	// xTaskCreate(gps_task, GPS_TAG, 4500, gps_args, 4, NULL);
+	//    xTaskCreate(display_task, DISPLAY_TAG, 4096, display_args, 4, NULL);
+	//    xTaskCreate(sd_task, SD_TAG, 4096, sd_args, 4, NULL);
+	// xTaskCreate(camera_task, CAMERA_TAG, 4096, camera_args, 5, NULL); 
 
-	while(1){ 
-		vTaskDelay(pdMS_TO_TICKS(10000));
-	}
+	// while(1){ 
+	// 	vTaskDelay(pdMS_TO_TICKS(10000));
+	// }
 	ESP_LOGE(MAIN_TAG, "Main task exited unexpectedly"); 
 	free(accel_to_display_queue); 
 	free(gps_to_display_queue); 
 	free(gps_to_sd_queue); 
 	free(camera_to_sd_queue); 
+	// Unmount partition and disable SDMMC peripheral
+	// esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
+	// ESP_LOGI(SD_TAG, "Card unmounted");
+	*/
 }
 
