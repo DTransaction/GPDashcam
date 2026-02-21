@@ -118,10 +118,9 @@ static esp_err_t http_resp_dir_html(httpd_req_t *req, const char *dirpath)
         entrytype = (entry->d_type == DT_DIR ? "directory" : "file");
 
         strlcpy(entrypath + dirpath_len, entry->d_name, sizeof(entrypath) - dirpath_len);
-		ESP_LOGI(TAG, "\n\nmax file name length: %i\n\n", FILE_PATH_MAX); 
         if (stat(entrypath, &entry_stat) == -1) {
-            // ESP_LOGE(TAG, "Failed to stat %s : %s", entrytype, entry->d_name);
-            // continue;
+            ESP_LOGE(TAG, "Failed to stat %s : %s", entrytype, entry->d_name);
+            continue;
         }
         sprintf(entrysize, "%ld", entry_stat.st_size);
         ESP_LOGI(TAG, "Found %s : %s (%s bytes)", entrytype, entry->d_name, entrysize);
