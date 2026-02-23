@@ -7,11 +7,6 @@
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "string.h"
-#include "driver/gpio.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // -----------------------------------------------------------------------------
 // Configuration constants
@@ -69,10 +64,6 @@ typedef struct {
  * and logs the parsed data.
  */
 void gps_task(void *arg);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // GPS_H
 

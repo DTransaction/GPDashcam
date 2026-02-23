@@ -1,19 +1,23 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "esp_camera.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "nvs_flash.h"
+#include "softap.h"
+#include "esp_vfs_fat.h"
+#include "driver/sdmmc_host.h"
+// #include "sdmmc_cmd.h"
+
+#include "file_server.h"
 #include "accelerometer.h"
 #include "gps.h"
 #include "display.h"
 #include "sd.h"
 #include "i2c_common.h"
 #include "camera.h"
-#include "esp_camera.h"
 
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "nvs_flash.h"
-#include "softap.h"
-#include "file_serving_example_common.h"
 
 #define MAIN_TAG "MAIN_TASK"
 
@@ -53,7 +57,7 @@ void mount_sd(sdmmc_card_t* card) {
 	ESP_LOGI(SD_TAG, "Filesystem mounted");
 
 	// Card has been initialized, print its properties
-	sdmmc_card_print_info(stdout, card);
+	// sdmmc_card_print_info(stdout, card);
 }
 
 void init_i2c(i2c_master_bus_handle_t* i2c_bus) { 
