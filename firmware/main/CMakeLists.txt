@@ -1,9 +1,9 @@
 idf_component_register(
 	SRCS 
 	"main.c"
-	"accelerometer_task.c"
-	"gps_task.c"
-	"display_task.c"
+	"accelerometer.c"
+	"gps.c"
+	"display.c"
 	"sd.c"
 	"camera.c"
 	"softap.c"
