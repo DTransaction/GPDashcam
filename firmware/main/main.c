@@ -170,11 +170,11 @@ void app_main(void) {
 	display_args->queues[1] = &gps_to_display_queue;
 
 	ESP_LOGI(MAIN_TAG, "Creating tasks");
-	xTaskCreate(accelerometer_task, ACCEL_TAG, 2500, accel_args, 4, NULL); 
-	xTaskCreate(gps_task, GPS_TAG, 4500, gps_args, 4, NULL);
-	xTaskCreate(display_task, DISPLAY_TAG, 4096, display_args, 4, NULL);
-	xTaskCreate(sd_task, SD_TAG, 4096, sd_args, 4, NULL);
-	xTaskCreate(camera_task, CAMERA_TAG, 4096, camera_args, 5, NULL); 
+	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 2500, accel_args, 4, NULL, 1); 
+	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, gps_args, 4, NULL, 1);
+	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, display_args, 4, NULL, 1);
+	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, sd_args, 4, NULL, 1);
+	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 4096, camera_args, 5, NULL, 0); 
 
 	while(1){ 
 		vTaskDelay(pdMS_TO_TICKS(10000));
