@@ -176,9 +176,8 @@ void app_main(void) {
 	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, sd_args, 4, NULL, 1);
 	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 4096, camera_args, 5, NULL, 0); 
 
-	while(1){ 
-		vTaskDelay(pdMS_TO_TICKS(10000));
-	}
+	vTaskSuspend(NULL); 
+
 	ESP_LOGE(MAIN_TAG, "Main task exited unexpectedly"); 
 	free(accel_to_display_queue); 
 	free(gps_to_display_queue); 
