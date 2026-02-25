@@ -48,8 +48,8 @@ void accelerometer_task(void *args) {
 
 	// Grab passed in arguments 
 	i2c_master_bus_handle_t *i2c_bus = ((i2c_task_args_t*)args)->i2c_bus; 
-	QueueHandle_t *accel_to_display_queue = ((i2c_task_args_t*)args)->queues[0]; 
-	TaskHandle_t *camera_handle = ((i2c_task_args_t*)args)->handles[0]; 
+	QueueHandle_t accel_to_display_queue = ((i2c_task_args_t*)args)->queues[0]; 
+	TaskHandle_t camera_handle = ((i2c_task_args_t*)args)->handles[0]; 
 
 	// Initialize accelerometer and add to bus 
     i2c_device_config_t i2c_accel_conf = {
@@ -108,7 +108,7 @@ void accelerometer_task(void *args) {
 
 		/*ESP_LOGI(ACCEL_TAG, "x=%.2f, y=%.2f, z=%.2f", (float)raw_x/128, (float)raw_y/128, (float)raw_z/128); */
 		/*ESP_LOGI(ACCEL_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL)); ;*/
-		xQueueOverwrite(*accel_to_display_queue, accel_data);
+		xQueueOverwrite(accel_to_display_queue, accel_data);
 		vTaskDelay(pdMS_TO_TICKS(DELAY_MS));
 	}
 

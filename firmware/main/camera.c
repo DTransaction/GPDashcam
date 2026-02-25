@@ -8,8 +8,8 @@
 #include "camera.h"
 
 void camera_task(void *args) { 
-	QueueHandle_t **queues = (QueueHandle_t **)args; 
-	QueueHandle_t *camera_to_sd_queue = queues[0]; 
+	QueueHandle_t *queues = (QueueHandle_t *)args; 
+	QueueHandle_t camera_to_sd_queue = queues[0]; 
 
 	camera_fb_t *camera_fb = malloc(sizeof(camera_fb_t)); 
 
@@ -22,12 +22,12 @@ void camera_task(void *args) {
         return;
     }
 	
-	xQueueOverwrite(*camera_to_sd_queue, camera_fb);
+	xQueueOverwrite(camera_to_sd_queue, camera_fb);
 
     ESP_LOGI(CAMERA_TAG, "Picture captured! Size: %zu bytes", camera_fb->len);
 
     esp_camera_fb_return(camera_fb);
 	ESP_LOGI(CAMERA_TAG, "Returned FB"); 
 
-	while (1) vTaskDelay(pdMS_TO_TICKS(100000));
+	vTaskSuspend(NULL);
 }

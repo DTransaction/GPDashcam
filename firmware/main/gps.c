@@ -104,9 +104,9 @@ static void parse_fields(char *fields[], gps_data_t *gps_data){
 }
 
 void gps_task(void *args) {
-	QueueHandle_t **queues = (QueueHandle_t **)args; 
-	QueueHandle_t *gps_to_display_queue = queues[0]; 
-	QueueHandle_t *gps_to_sd_queue = queues[1]; 
+	QueueHandle_t *queues = (QueueHandle_t *)args; 
+	QueueHandle_t gps_to_display_queue = queues[0]; 
+	QueueHandle_t gps_to_sd_queue = queues[1]; 
 	/*QueueHandle_t *gps_to_display_queue = (QueueHandle_t *)args[0]; */
 	/*QueueHandle_t *gps_to_sd_queue = (QueueHandle_t *)args[1]; */
 
@@ -160,8 +160,8 @@ void gps_task(void *args) {
 				}
 
 				parse_fields(fields, gps_data); 
-				xQueueOverwrite(*gps_to_display_queue, gps_data);
-				xQueueOverwrite(*gps_to_sd_queue, gps_data);
+				xQueueOverwrite(gps_to_display_queue, gps_data);
+				xQueueOverwrite(gps_to_sd_queue, gps_data);
 				ESP_LOGI(GPS_TAG, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %f degrees, heading %s", 
 						gps_data->day, 
 						gps_data->month, 

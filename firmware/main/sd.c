@@ -47,9 +47,9 @@ static esp_err_t read_file(const char *path) {
 
 void sd_task(void *args) { 
     esp_err_t ret;
-	QueueHandle_t **queues = (QueueHandle_t **)args; 
-	QueueHandle_t *gps_to_sd_queue = queues[0]; 
-	QueueHandle_t *camera_to_sd_queue = queues[1]; 
+	QueueHandle_t *queues = (QueueHandle_t *)args; 
+	QueueHandle_t gps_to_sd_queue = queues[0]; 
+	QueueHandle_t camera_to_sd_queue = queues[1]; 
 
 	gps_data_t *gps_data = malloc(sizeof(gps_data_t)); 
 	camera_fb_t *camera_fb = malloc(sizeof(camera_fb_t)); 
@@ -60,7 +60,7 @@ void sd_task(void *args) {
 
 	while (1) { 
 		// GPS data logging 
-		if (xQueueReceive(*gps_to_sd_queue, gps_data, 0)) {
+		if (xQueueReceive(gps_to_sd_queue, gps_data, 0)) {
 			snprintf(data, MAX_CHAR_SIZE, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %.02f degrees, heading %s\n", 
 						gps_data->day, 
 						gps_data->month, 
@@ -82,7 +82,7 @@ void sd_task(void *args) {
 			if (ret != ESP_OK) return;
 		}
 
-		if (xQueueReceive(*camera_to_sd_queue, camera_fb, 1000)) {
+		if (xQueueReceive(camera_to_sd_queue, camera_fb, 1000)) {
 			FILE *file = fopen(CAMERA_FILE_PATH, "w"); 
 			fwrite(camera_fb->buf, 1, camera_fb->len, file); 
 			fclose(file); 

@@ -154,8 +154,8 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 // Task to update sensor display
 void display_task(void *args) {
 	// Grab arguments
-	QueueHandle_t *accel_queue = ((i2c_task_args_t*)args)->queues[0]; 
-	QueueHandle_t *gps_queue = ((i2c_task_args_t*)args)->queues[1];
+	QueueHandle_t accel_queue = ((i2c_task_args_t*)args)->queues[0]; 
+	QueueHandle_t gps_queue = ((i2c_task_args_t*)args)->queues[1];
 	i2c_master_bus_handle_t *i2c_bus = ((i2c_task_args_t*)args)->i2c_bus;
 
 	// Initialize display 
@@ -189,7 +189,7 @@ void display_task(void *args) {
 	gps_data_t *gps_data = calloc(1, sizeof(gps_data_t));
 
     while (1) {
-		if(!xQueueReceive(*accel_queue, accel_data, 0) && !xQueueReceive(*gps_queue, gps_data, 0)) continue; 
+		if(!xQueueReceive(accel_queue, accel_data, 0) && !xQueueReceive(gps_queue, gps_data, 0)) continue; 
 		snprintf(buffer, sizeof(buffer), "A: %.2f %.2f %.2f\nTotal mag: %.2f\nDate: %02d-%02d-%04d\nTime: %02d:%02d:%02d\nLat: %f\nLon: %f", 
 				accel_data->x, 
 				accel_data->y, 
