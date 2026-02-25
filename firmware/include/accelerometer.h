@@ -17,6 +17,7 @@ typedef struct {
     float x;  // Acceleration in the X axis (g) 
     float y;  // Acceleration in the Y axis (g) 
     float z;  // Acceleration in the Z axis (g) 
+	float total_magnitude; // Total acceleration magnitude
 } accel_data_t;
 
 /**

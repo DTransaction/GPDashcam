@@ -190,10 +190,11 @@ void display_task(void *args) {
 
     while (1) {
 		if(!xQueueReceive(*accel_queue, accel_data, 0) && !xQueueReceive(*gps_queue, gps_data, 0)) continue; 
-		snprintf(buffer, sizeof(buffer), "A: %.2f %.2f %.2f\nDate: %02d-%02d-%04d\nTime: %02d:%02d:%02d\nLat: %f\nLon: %f", 
+		snprintf(buffer, sizeof(buffer), "A: %.2f %.2f %.2f\nTotal mag: %.2f\nDate: %02d-%02d-%04d\nTime: %02d:%02d:%02d\nLat: %f\nLon: %f", 
 				accel_data->x, 
 				accel_data->y, 
 				accel_data->z,
+				accel_data->total_magnitude,
 				gps_data->day, 
 				gps_data->month, 
 				gps_data->year, 

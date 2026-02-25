@@ -3,6 +3,7 @@
 #include "accelerometer.h"
 #include "esp_log.h"
 #include "i2c_common.h"
+#include <math.h>
 
 #define I2C_TOOL_TIMEOUT_VALUE_MS (50)
 
@@ -48,8 +49,9 @@ void accelerometer_task(void *args) {
 	// Grab passed in arguments 
 	i2c_master_bus_handle_t *i2c_bus = ((i2c_task_args_t*)args)->i2c_bus; 
 	QueueHandle_t *accel_to_display_queue = ((i2c_task_args_t*)args)->queues[0]; 
+	TaskHandle_t *camera_handle = ((i2c_task_args_t*)args)->handles[0]; 
 
-	// Instantiate I2C accelerometer and add to bus 
+	// Initialize accelerometer and add to bus 
     i2c_device_config_t i2c_accel_conf = {
         .scl_speed_hz = I2C_FREQUENCY,
         .device_address = I2C_ACCEL_ADDR,
@@ -65,6 +67,9 @@ void accelerometer_task(void *args) {
 	int16_t raw_x; 
 	int16_t raw_y; 
 	int16_t raw_z; 
+	float x; 
+	float y; 
+	float z; 
 
 	// TODO: Figure out why I2C device needs to be woken up. 
 	// Current inelegant solution is to poke it with a read. 
@@ -77,22 +82,29 @@ void accelerometer_task(void *args) {
 
 	// Continuously retreive accel data 
 	while (1) { 
+		// Collect LSB then MSB of x value
 		i2cget(i2c_accel_handle, 0x32, data_byte);
 		raw_x = *data_byte; 
 		i2cget(i2c_accel_handle, 0x33, data_byte);
 		raw_x = raw_x | *data_byte << 8; 
+		// Collect LSB then MSB of y value
 		i2cget(i2c_accel_handle, 0x34, data_byte);
 		raw_y = *data_byte; 
 		i2cget(i2c_accel_handle, 0x35, data_byte);
 		raw_y = raw_y | *data_byte << 8; 
+		// Collect LSB then MSB of z value
 		i2cget(i2c_accel_handle, 0x36, data_byte);
 		raw_z = *data_byte; 
 		i2cget(i2c_accel_handle, 0x37, data_byte);
 		raw_z = raw_z | *data_byte << 8; 
 		
-		accel_data->x = (float)raw_x/128;
-		accel_data->y = (float)raw_y/128;
-		accel_data->z = (float)raw_z/128;
+		x = (float)raw_x/128;
+		y = (float)raw_y/128;
+		z = (float)raw_z/128;
+		accel_data->total_magnitude = sqrtf(x*x + y*y + z*z);
+		accel_data->x = x;
+		accel_data->y = y;
+		accel_data->z = z;
 
 		/*ESP_LOGI(ACCEL_TAG, "x=%.2f, y=%.2f, z=%.2f", (float)raw_x/128, (float)raw_y/128, (float)raw_z/128); */
 		/*ESP_LOGI(ACCEL_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL)); ;*/
@@ -101,8 +113,10 @@ void accelerometer_task(void *args) {
 	}
 
 	// If task exits somehow, clean up 
+	ESP_LOGE(ACCEL_TAG, "Unexpectedly exited");
 	free(accel_data); 
 	free(data_byte); 
 	i2c_master_bus_rm_device(*i2c_accel_handle);
+	vTaskDelete(NULL); 
 }
 

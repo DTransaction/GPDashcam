@@ -124,10 +124,15 @@ static esp_err_t init_camera(void)
 	return err;
 }
 void app_main(void) {
+	TaskHandle_t *accel_handle = NULL; 
+	TaskHandle_t *gps_handle = NULL; 
+	TaskHandle_t *display_handle = NULL; 
+	TaskHandle_t *sd_handle = NULL; 
+	TaskHandle_t *camera_handle = NULL; 
 
 	ESP_LOGI(MAIN_TAG, "Initialize I2C bus");
-	i2c_master_bus_handle_t i2c_bus;
-	init_i2c(&i2c_bus); 
+	i2c_master_bus_handle_t *i2c_bus = malloc(sizeof(i2c_master_bus_handle_t));
+	init_i2c(i2c_bus); 
 
 	ESP_LOGI(MAIN_TAG, "Initialize UART1");
 	init_uart(); 
@@ -154,32 +159,34 @@ void app_main(void) {
 	QueueHandle_t gps_to_sd_queue = xQueueCreate(1, sizeof(gps_data_t)); 
 	QueueHandle_t camera_to_sd_queue = xQueueCreate(1, sizeof(camera_fb_t)); 
 
-	// Done in this manner because we have flexible array members 
-	i2c_task_args_t *accel_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t*) + 1*sizeof(QueueHandle_t*)); 
-	i2c_task_args_t *display_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t*) + 2*sizeof(QueueHandle_t*)); 
+	// Populate accelerometer arguments then create task 
+	i2c_task_args_t *accel_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t)); 
+	accel_args->i2c_bus = i2c_bus;
+	accel_args->queues[0] = &accel_to_display_queue;
+	accel_args->handles[0] = camera_handle; 
+	
+	// Populate display arguments
+	i2c_task_args_t *display_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t)); 
+	display_args->i2c_bus = i2c_bus; 
+	display_args->queues[0] = &accel_to_display_queue;
+	display_args->queues[1] = &gps_to_display_queue;
+
+	// Populate GPS, SD, and camera arguments
 	QueueHandle_t *gps_args[2] = {&gps_to_display_queue, &gps_to_sd_queue}; 
 	QueueHandle_t *sd_args[2] = {&gps_to_sd_queue, &camera_to_sd_queue}; 
 	QueueHandle_t *camera_args[1] = {&camera_to_sd_queue}; 
 
-	// Populating task arguments
-	accel_args->i2c_bus = &i2c_bus;
-	accel_args->queues[0] = &accel_to_display_queue;
-
-	display_args->i2c_bus = &i2c_bus; 
-	display_args->queues[0] = &accel_to_display_queue;
-	display_args->queues[1] = &gps_to_display_queue;
-
 	ESP_LOGI(MAIN_TAG, "Creating tasks");
-	TaskHandle_t accel_handle = NULL; 
-	TaskHandle_t gps_handle = NULL; 
-	TaskHandle_t display_handle = NULL; 
-	TaskHandle_t sd_handle = NULL; 
-	TaskHandle_t camera_handle = NULL; 
-	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 2500, accel_args, 3, accel_handle, 1); 
-	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, gps_args, 3, gps_handle, 1);
-	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, display_args, 3, display_handle, 1);
 	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, sd_args, 4, sd_handle, 1);
+	ESP_LOGI(MAIN_TAG, "SD task created");
+	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, display_args, 3, display_handle, 1);
+	ESP_LOGI(MAIN_TAG, "Display task created");
+	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 4500, accel_args, 3, accel_handle, 1); 
+	ESP_LOGI(MAIN_TAG, "Accelerometer task created");
+	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, gps_args, 3, gps_handle, 1);
+	ESP_LOGI(MAIN_TAG, "GPS task created");
 	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 4096, camera_args, 5, camera_handle, 0); 
+	ESP_LOGI(MAIN_TAG, "Camera task created");
 
 	vTaskSuspend(NULL); // Can't continue unless another task calls vTaskResume with this task handle
 }
