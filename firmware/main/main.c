@@ -170,21 +170,17 @@ void app_main(void) {
 	display_args->queues[1] = &gps_to_display_queue;
 
 	ESP_LOGI(MAIN_TAG, "Creating tasks");
-	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 2500, accel_args, 3, NULL, 1); 
-	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, gps_args, 3, NULL, 1);
-	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, display_args, 3, NULL, 1);
-	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, sd_args, 4, NULL, 1);
-	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 4096, camera_args, 5, NULL, 0); 
+	TaskHandle_t accel_handle = NULL; 
+	TaskHandle_t gps_handle = NULL; 
+	TaskHandle_t display_handle = NULL; 
+	TaskHandle_t sd_handle = NULL; 
+	TaskHandle_t camera_handle = NULL; 
+	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 2500, accel_args, 3, accel_handle, 1); 
+	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, gps_args, 3, gps_handle, 1);
+	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, display_args, 3, display_handle, 1);
+	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, sd_args, 4, sd_handle, 1);
+	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 4096, camera_args, 5, camera_handle, 0); 
 
-	vTaskSuspend(NULL); 
-
-	ESP_LOGE(MAIN_TAG, "Main task exited unexpectedly"); 
-	free(accel_to_display_queue); 
-	free(gps_to_display_queue); 
-	free(gps_to_sd_queue); 
-	free(camera_to_sd_queue); 
-	// Unmount partition and disable SDMMC peripheral
-	esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
-	ESP_LOGI(SD_TAG, "Card unmounted");
+	vTaskSuspend(NULL); // Can't continue unless another task calls vTaskResume with this task handle
 }
 
