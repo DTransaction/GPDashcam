@@ -20,6 +20,7 @@
 
 
 #define MAIN_TAG "MAIN_TASK"
+#define SUPERVISOR_TAG "SUPERVISOR_TASK"
 
 void mount_sd(sdmmc_card_t* card) { 
 	esp_err_t ret;
@@ -123,7 +124,16 @@ static esp_err_t init_camera(void)
 	}
 	return err;
 }
+
+void supervisor_task(void *args) { 
+	for (;;) { 
+		xTaskGenericNotifyWait(0, BIT0, BIT0, NULL, portMAX_DELAY); 
+		ESP_LOGI(MAIN_TAG, "Supervisor"); 
+	}
+}
+
 void app_main(void) {
+	TaskHandle_t supervisor_handle = NULL; 
 	TaskHandle_t accel_handle = NULL; 
 	TaskHandle_t gps_handle = NULL; 
 	TaskHandle_t display_handle = NULL; 
@@ -153,6 +163,9 @@ void app_main(void) {
 	wifi_init_softap();
 	ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
 
+	xTaskCreatePinnedToCore(supervisor_task, SUPERVISOR_TAG, 1024, NULL, 6, &supervisor_handle, 1);
+	ESP_LOGI(MAIN_TAG, "Supervisor task created");
+
 	ESP_LOGI(MAIN_TAG, "Create queues");
 	QueueHandle_t accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
 	QueueHandle_t gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 
@@ -163,7 +176,7 @@ void app_main(void) {
 	i2c_task_args_t *accel_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t)); 
 	accel_args->i2c_bus = i2c_bus;
 	accel_args->queues[0] = accel_to_display_queue;
-	accel_args->handles[0] = camera_handle; 
+	accel_args->handles[0] = supervisor_handle; 
 	
 	// Populate display arguments
 	i2c_task_args_t *display_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t)); 
@@ -176,7 +189,6 @@ void app_main(void) {
 	QueueHandle_t sd_args[2] = {gps_to_sd_queue, camera_to_sd_queue}; 
 	QueueHandle_t camera_args[1] = {camera_to_sd_queue}; 
 
-	ESP_LOGI(MAIN_TAG, "Creating tasks");
 	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, sd_args, 4, &sd_handle, 1);
 	ESP_LOGI(MAIN_TAG, "SD task created");
 	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, display_args, 3, &display_handle, 1);
