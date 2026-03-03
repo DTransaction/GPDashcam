@@ -6,14 +6,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "camera.h"
+#include "queues.h"
 
 void camera_task(void *args) { 
-	QueueHandle_t *queues = (QueueHandle_t *)args; 
-	QueueHandle_t camera_to_sd_queue = queues[0]; 
-
-	camera_fb_t *camera_fb = malloc(sizeof(camera_fb_t)); 
-
-    ESP_LOGI(CAMERA_TAG, "Starting camera test");
+	if (!camera_to_sd_queue) ESP_LOGE(CAMERA_TAG, "Camera to SD queue creation failed"); 
+	camera_fb_t *camera_fb; 
 
     ESP_LOGI(CAMERA_TAG, "Capturing image...");
     camera_fb = esp_camera_fb_get();
@@ -21,13 +18,12 @@ void camera_task(void *args) {
         ESP_LOGE(CAMERA_TAG, "Failed to get frame buffer");
         return;
     }
+	ESP_LOGI(CAMERA_TAG, "Picture captured! Size: %zu bytes", camera_fb->len);
 	
-	xQueueOverwrite(camera_to_sd_queue, camera_fb);
-
-    ESP_LOGI(CAMERA_TAG, "Picture captured! Size: %zu bytes", camera_fb->len);
-
-    esp_camera_fb_return(camera_fb);
-	ESP_LOGI(CAMERA_TAG, "Returned FB"); 
-
+	if (CONFIG_FB_COUNT == 1) { 
+		xQueueOverwrite(camera_to_sd_queue, &camera_fb);
+	} else if (CONFIG_FB_COUNT > 1) { 
+		xQueueSendToFront(camera_to_sd_queue, &camera_fb, portMAX_DELAY); 
+	}
 	vTaskSuspend(NULL);
 }

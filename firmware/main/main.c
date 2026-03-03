@@ -15,12 +15,29 @@
 #include "gps.h"
 #include "display.h"
 #include "sd.h"
-#include "i2c_common.h"
 #include "camera.h"
+#include "queues.h"
 
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_panel_vendor.h"
+#include "esp_lcd_panel_ops.h"
 
 #define MAIN_TAG "MAIN_TASK"
 #define SUPERVISOR_TAG "SUPERVISOR_TASK"
+
+TaskHandle_t supervisor_handle; 
+TaskHandle_t accel_handle; 
+TaskHandle_t gps_handle; 
+TaskHandle_t display_handle; 
+TaskHandle_t sd_handle; 
+TaskHandle_t camera_handle; 
+QueueHandle_t accel_to_display_queue; 
+QueueHandle_t gps_to_display_queue; 
+QueueHandle_t gps_to_sd_queue; 
+QueueHandle_t camera_to_sd_queue; 
+i2c_master_bus_handle_t i2c_bus;
+i2c_master_dev_handle_t i2c_accel_handle;
+esp_lcd_panel_handle_t *panel;
 
 void mount_sd(sdmmc_card_t* card) { 
 	esp_err_t ret;
@@ -61,7 +78,7 @@ void mount_sd(sdmmc_card_t* card) {
 	// sdmmc_card_print_info(stdout, card);
 }
 
-void init_i2c(i2c_master_bus_handle_t* i2c_bus) { 
+void init_i2c() { 
 	i2c_master_bus_config_t bus_config = {
 		.clk_source = I2C_CLK_SRC_DEFAULT,
 		.i2c_port = 0,
@@ -70,7 +87,7 @@ void init_i2c(i2c_master_bus_handle_t* i2c_bus) {
 		.glitch_ignore_cnt = 7,
 		.flags.enable_internal_pullup = true,
 	};
-	ESP_ERROR_CHECK(i2c_new_master_bus(&bus_config, i2c_bus));
+	ESP_ERROR_CHECK(i2c_new_master_bus(&bus_config, &i2c_bus));
 }
 
 void init_uart() { 
@@ -125,24 +142,57 @@ static esp_err_t init_camera(void)
 	return err;
 }
 
+void init_display(esp_lcd_panel_handle_t *panel) { 
+	// Initialize display 
+    ESP_LOGI(DISPLAY_TAG, "Install SSD1306 panel driver");
+	esp_lcd_panel_io_handle_t io_handle = NULL;
+    esp_lcd_panel_io_i2c_config_t io_config = {
+        .dev_addr = I2C_ADDR,
+        .scl_speed_hz = LCD_PIXEL_CLOCK_HZ,
+        .control_phase_bytes = 1,
+        .lcd_cmd_bits = 8,
+        .lcd_param_bits = 8,
+        .dc_bit_offset = 6,
+    };
+	ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_bus, &io_config, &io_handle));
+
+    esp_lcd_panel_dev_config_t panel_config = {
+        .bits_per_pixel = 1,
+        .reset_gpio_num = -1,
+    };
+    esp_lcd_panel_ssd1306_config_t ssd1306_config = {
+        .height = LCD_V,
+    };
+    panel_config.vendor_config = &ssd1306_config;
+    ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(io_handle, &panel_config, panel));
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(*panel));
+	ESP_ERROR_CHECK(esp_lcd_panel_init(*panel));
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(*panel, true));
+}
+
+void init_accel(void) { 
+	// Initialize accelerometer and add to bus 
+    i2c_device_config_t i2c_accel_conf = {
+        .scl_speed_hz = I2C_FREQUENCY,
+        .device_address = I2C_ACCEL_ADDR,
+    };
+    if (i2c_master_bus_add_device(i2c_bus, &i2c_accel_conf, &i2c_accel_handle) != ESP_OK) {
+        return;
+    }
+}
+
 void supervisor_task(void *args) { 
-	for (;;) { 
-		xTaskGenericNotifyWait(0, BIT0, BIT0, NULL, portMAX_DELAY); 
-		ESP_LOGI(MAIN_TAG, "Supervisor"); 
+	while (1) { 
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY); 
+		ESP_LOGI("SUPERVISOR_TASK", "Notifying camera and display"); 
+		ESP_LOGI("SUPERVISOR_TASK", "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 	}
 }
 
 void app_main(void) {
-	TaskHandle_t supervisor_handle = NULL; 
-	TaskHandle_t accel_handle = NULL; 
-	TaskHandle_t gps_handle = NULL; 
-	TaskHandle_t display_handle = NULL; 
-	TaskHandle_t sd_handle = NULL; 
-	TaskHandle_t camera_handle = NULL; 
-
+	panel = malloc(sizeof(esp_lcd_panel_handle_t));
 	ESP_LOGI(MAIN_TAG, "Initialize I2C bus");
-	i2c_master_bus_handle_t *i2c_bus = malloc(sizeof(i2c_master_bus_handle_t));
-	init_i2c(i2c_bus); 
+	init_i2c(); 
 
 	ESP_LOGI(MAIN_TAG, "Initialize UART1");
 	init_uart(); 
@@ -157,48 +207,39 @@ void app_main(void) {
 	sdmmc_card_t *card = malloc(sizeof(sdmmc_card_t));
 	mount_sd(card); 
 
+	ESP_LOGI(MAIN_TAG, "Initialize display"); 
+	init_accel();
+	init_display(panel); 
+
 	ESP_ERROR_CHECK(nvs_flash_init());
 	ESP_ERROR_CHECK(esp_netif_init());
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
 	wifi_init_softap();
 	ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
 
-	xTaskCreatePinnedToCore(supervisor_task, SUPERVISOR_TAG, 1024, NULL, 6, &supervisor_handle, 1);
-	ESP_LOGI(MAIN_TAG, "Supervisor task created");
-
 	ESP_LOGI(MAIN_TAG, "Create queues");
-	QueueHandle_t accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
-	QueueHandle_t gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 
-	QueueHandle_t gps_to_sd_queue = xQueueCreate(1, sizeof(gps_data_t)); 
-	QueueHandle_t camera_to_sd_queue = xQueueCreate(1, sizeof(camera_fb_t)); 
+	accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
+	gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 
+	gps_to_sd_queue = xQueueCreate(1, sizeof(gps_data_t)); 
+	camera_to_sd_queue = xQueueCreate(CONFIG_FB_COUNT, sizeof(camera_fb_t*)); 
 
-	// Populate accelerometer arguments then create task 
-	i2c_task_args_t *accel_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t)); 
-	accel_args->i2c_bus = i2c_bus;
-	accel_args->queues[0] = accel_to_display_queue;
-	accel_args->handles[0] = supervisor_handle; 
-	
-	// Populate display arguments
-	i2c_task_args_t *display_args = (i2c_task_args_t*)malloc(sizeof(i2c_task_args_t)); 
-	display_args->i2c_bus = i2c_bus; 
-	display_args->queues[0] = accel_to_display_queue;
-	display_args->queues[1] = gps_to_display_queue;
+	if (!accel_to_display_queue) ESP_LOGE(MAIN_TAG, "Accel to display queue creation failed"); 
+	if (!gps_to_display_queue) ESP_LOGE(MAIN_TAG, "GPS to display queue creation failed"); 
+	if (!gps_to_sd_queue) ESP_LOGE(MAIN_TAG, "GPS to SD queue creation failed"); 
+	if (!camera_to_sd_queue) ESP_LOGE(MAIN_TAG, "Camera to SD queue creation failed"); 
 
-	// Populate GPS, SD, and camera arguments
-	QueueHandle_t gps_args[2] = {gps_to_display_queue, gps_to_sd_queue}; 
-	QueueHandle_t sd_args[2] = {gps_to_sd_queue, camera_to_sd_queue}; 
-	QueueHandle_t camera_args[1] = {camera_to_sd_queue}; 
-
-	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, sd_args, 4, &sd_handle, 1);
-	ESP_LOGI(MAIN_TAG, "SD task created");
-	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, display_args, 3, &display_handle, 1);
+	xTaskCreatePinnedToCore(supervisor_task, SUPERVISOR_TAG, 2048, NULL, 6, &supervisor_handle, 1);
+	ESP_LOGI(MAIN_TAG, "Supervisor task created");
+	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, NULL, 3, &display_handle, 1);
 	ESP_LOGI(MAIN_TAG, "Display task created");
-	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 4500, accel_args, 3, &accel_handle, 1); 
+	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 4500, NULL, 3, &accel_handle, 1); 
 	ESP_LOGI(MAIN_TAG, "Accelerometer task created");
-	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, gps_args, 3, &gps_handle, 1);
+	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, NULL, 3, &gps_handle, 1);
 	ESP_LOGI(MAIN_TAG, "GPS task created");
-	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 4096, camera_args, 5, &camera_handle, 0); 
+	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 4096, NULL, 5, &camera_handle, 0); 
 	ESP_LOGI(MAIN_TAG, "Camera task created");
+	xTaskCreatePinnedToCore(sd_task, SD_TAG, 4096, NULL, 4, &sd_handle, 1);
+	ESP_LOGI(MAIN_TAG, "SD task created");
 
 	vTaskSuspend(NULL); // Can't continue unless another task calls vTaskResume with this task handle
 }

@@ -73,6 +73,11 @@ menu "GPDashcam configuration"
 			int "Poll rate"
 			default 4
 	endmenu
+	menu "Display"
+		config REFRESH_RATE
+			int "Display refresh rate (Hz)"
+			default 4
+	endmenu
 	menu "UART"
 		config RX_PIN_NUM
 			int "RX pin number"
