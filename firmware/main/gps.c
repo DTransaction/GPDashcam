@@ -5,7 +5,10 @@
 #include "driver/uart.h"
 #include "string.h"
 #include "driver/gpio.h"
+
 #include "gps.h"
+#include "uart.h"
+#include "global.h"
 
 static inline uint8_t convert_two_digit2number(const char *digit_char)
 {
@@ -104,21 +107,16 @@ static void parse_fields(char *fields[], gps_data_t *gps_data){
 }
 
 void gps_task(void *args) {
-	QueueHandle_t **queues = (QueueHandle_t **)args; 
-	QueueHandle_t *gps_to_display_queue = queues[0]; 
-	QueueHandle_t *gps_to_sd_queue = queues[1]; 
-	/*QueueHandle_t *gps_to_display_queue = (QueueHandle_t *)args[0]; */
-	/*QueueHandle_t *gps_to_sd_queue = (QueueHandle_t *)args[1]; */
-
+	static const gps_data_t empty_gps_data; 
     char *buffer = malloc(RX_BUFFER_SIZE + 1); // +1 to ensure '\0' can always be appended
-	gps_data_t *gps_data = malloc(sizeof(gps_data_t)); 
+	gps_data_t gps_data; 
 	char *fields[RMC_SIZE]; 
 	char *sentence_remainder; 
 
 	ESP_LOGI(GPS_TAG, "Initialized"); 
 
 	while(1) {
-		uint8_t len = uart_read_bytes(UART_NUM_1, buffer, RX_BUFFER_SIZE, pdMS_TO_TICKS(100));
+		uint8_t len = uart_read_bytes(UART_NUM_1, buffer, RX_BUFFER_SIZE, portMAX_DELAY);
 		if(len == 0) continue;
 
 		char *sentence = buffer;
@@ -136,7 +134,7 @@ void gps_task(void *args) {
 				}
 
 				uint8_t field_count = 0; 
-				memset(gps_data, 0, sizeof(gps_data_t));
+				gps_data = empty_gps_data; 
 				sentence_remainder = sentence; 
 				// Parse RMC sentence into an array using comma separation 
 				// Empty fields are still recorded into array to keep consistent
@@ -159,27 +157,25 @@ void gps_task(void *args) {
 					}
 				}
 
-				parse_fields(fields, gps_data); 
-				xQueueOverwrite(*gps_to_display_queue, gps_data);
-				xQueueOverwrite(*gps_to_sd_queue, gps_data);
+				parse_fields(fields, &gps_data); 
+				xQueueOverwrite(gps_to_display_queue, &gps_data);
+				xQueueOverwrite(gps_to_sd_queue, &gps_data);
 				ESP_LOGI(GPS_TAG, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %f degrees, heading %s", 
-						gps_data->day, 
-						gps_data->month, 
-						gps_data->year, 
-						gps_data->hour, 
-						gps_data->minute, 
-						gps_data->second, 
-						gps_data->latitude,
-						gps_data->longitude,
-						gps_data->speed,
-						gps_data->cog,
-						gps_data->direction
+						gps_data.day, 
+						gps_data.month, 
+						gps_data.year, 
+						gps_data.hour, 
+						gps_data.minute, 
+						gps_data.second, 
+						gps_data.latitude,
+						gps_data.longitude,
+						gps_data.speed,
+						gps_data.cog,
+						gps_data.direction
 						); 
 				/*ESP_LOGI(GPS_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL)); ;*/
-				vTaskDelay(pdMS_TO_TICKS(100));
 			}
 		}
+		vTaskDelay(pdMS_TO_TICKS(1000));
 	}
-    free(buffer);
-	free(gps_data); 
 }
