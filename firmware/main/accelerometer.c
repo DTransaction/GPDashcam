@@ -3,9 +3,20 @@
 #include "accelerometer.h"
 #include "esp_log.h"
 #include <math.h>
-#include "queues.h"
+#include "global.h"
 
 #define I2C_TOOL_TIMEOUT_VALUE_MS (50)
+
+void init_accel(i2c_master_dev_handle_t *i2c_accel_handle) {
+	// Initialize accelerometer and add to bus 
+    i2c_device_config_t i2c_accel_conf = {
+        .scl_speed_hz = I2C_ACCEL_FREQ,
+        .device_address = I2C_ACCEL_ADDR,
+    };
+    if (i2c_master_bus_add_device(i2c_bus, &i2c_accel_conf, i2c_accel_handle) != ESP_OK) {
+        return;
+    }
+}
 
 static uint8_t i2cget(i2c_master_dev_handle_t i2c_dev_handle, uint8_t data_addr, uint8_t *data) {
     uint8_t len = 1;
@@ -44,8 +55,6 @@ static uint8_t i2cset(i2c_master_dev_handle_t i2c_dev_handle, uint8_t data_addr,
 }
 
 void accelerometer_task(void *args) { 
-	extern TaskHandle_t supervisor_handle;
-	extern i2c_master_dev_handle_t i2c_accel_handle;
 	if (!accel_to_display_queue) ESP_LOGE(ACCEL_TAG, "Accel to display queue creation failed"); 
 
 	accel_data_t accel_data; 
@@ -97,9 +106,9 @@ void accelerometer_task(void *args) {
 		// ESP_LOGI("ACCEL", "Queue handle: %p", accel_to_display_queue);
 		// ESP_LOGI(ACCEL_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		if (accel_data.total_magnitude >= CONFIG_IMPACT_GFORCE_THRESHOLD) { 
-			ESP_LOGI(ACCEL_TAG, "IMPACT DETECTED"); 
+			ESP_LOGI(ACCEL_TAG, "%dG IMPACT DETECTED", accel_data.total_magnitude); 
 			if (supervisor_handle != NULL) { 
-				xTaskNotifyGive(supervisor_handle); 
+				xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
 			}
 		} else { 
 			xQueueOverwrite(accel_to_display_queue, &accel_data);

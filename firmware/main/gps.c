@@ -5,8 +5,10 @@
 #include "driver/uart.h"
 #include "string.h"
 #include "driver/gpio.h"
+
 #include "gps.h"
-#include "queues.h"
+#include "uart.h"
+#include "global.h"
 
 static inline uint8_t convert_two_digit2number(const char *digit_char)
 {
@@ -172,8 +174,8 @@ void gps_task(void *args) {
 						gps_data.direction
 						); 
 				/*ESP_LOGI(GPS_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL)); ;*/
-				vTaskDelay(pdMS_TO_TICKS(1000));
 			}
 		}
+		vTaskDelay(pdMS_TO_TICKS(1000));
 	}
 }

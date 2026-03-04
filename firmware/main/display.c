@@ -14,7 +14,7 @@
 #include "accelerometer.h"
 #include "gps.h"
 #include "display.h"
-#include "queues.h"
+#include "global.h"
 
 // 5x7 font table (ASCII 0x20–0x7F)
 static const uint8_t font5x7[96][5] = {
@@ -115,6 +115,33 @@ static const uint8_t font5x7[96][5] = {
     {0x02,0x01,0x02,0x04,0x02}, // '~'
 };
 
+void init_display(esp_lcd_panel_handle_t *panel) { 
+	// Initialize display 
+    ESP_LOGI(DISPLAY_TAG, "Install SSD1306 panel driver");
+	esp_lcd_panel_io_handle_t io_handle = NULL;
+    esp_lcd_panel_io_i2c_config_t io_config = {
+        .dev_addr = I2C_ADDR,
+        .scl_speed_hz = LCD_PIXEL_CLOCK_HZ,
+        .control_phase_bytes = 1,
+        .lcd_cmd_bits = 8,
+        .lcd_param_bits = 8,
+        .dc_bit_offset = 6,
+    };
+	ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_bus, &io_config, &io_handle));
+
+    esp_lcd_panel_dev_config_t panel_config = {
+        .bits_per_pixel = 1,
+        .reset_gpio_num = -1,
+    };
+    esp_lcd_panel_ssd1306_config_t ssd1306_config = {
+        .height = LCD_V,
+    };
+    panel_config.vendor_config = &ssd1306_config;
+    ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(io_handle, &panel_config, panel));
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(*panel));
+	ESP_ERROR_CHECK(esp_lcd_panel_init(*panel));
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(*panel, true));
+}
 // Display buffer (1-bit monochrome)
 static uint8_t oled_buffer[LCD_H * LCD_V / 8];
 
@@ -153,9 +180,6 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 }
 // Task to update sensor display
 void display_task(void *args) {
-	// Grab arguments
-	extern esp_lcd_panel_handle_t *panel;
-
     char buffer[BUFFER_SIZE];
 	accel_data_t accel_data; 
 	gps_data_t gps_data;

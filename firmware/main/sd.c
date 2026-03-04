@@ -5,12 +5,52 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+#include "esp_vfs_fat.h"
+#include "driver/sdmmc_host.h"
 
 #include "sd.h"
 #include "gps.h"
 #include "esp_camera.h"
-#include "queues.h"
+#include "global.h"
 
+void mount_sd(sdmmc_card_t* card) { 
+	esp_err_t ret;
+	sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+	host.max_freq_khz = SDMMC_FREQ_DEFAULT; // 20 MHz
+
+	// Options for mounting the filesystem.
+	esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+		.format_if_mount_failed = true,
+		.max_files = 5,
+		.allocation_unit_size = 16 * 1024
+	};
+
+	ESP_LOGI(SD_TAG, "Initializing SD card");
+	sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+	slot_config.width = 4;
+	slot_config.clk = CONFIG_CLK_PIN_NUM;
+	slot_config.cmd = CONFIG_CMD_PIN_NUM;
+	slot_config.d0 = CONFIG_D0_PIN_NUM;
+	slot_config.d1 = CONFIG_D1_PIN_NUM;
+	slot_config.d2 = CONFIG_D2_PIN_NUM;
+	slot_config.d3 = CONFIG_D3_PIN_NUM;
+
+	ESP_LOGI(SD_TAG, "Mounting filesystem");
+	ret = esp_vfs_fat_sdmmc_mount(MOUNT_POINT, &host, &slot_config, &mount_config, &card);
+	if (ret != ESP_OK) {
+		if (ret == ESP_FAIL) {
+			ESP_LOGE(SD_TAG, "Failed to mount filesystem. ");
+		} else {
+			ESP_LOGE(SD_TAG, "Failed to initialize the card (%s). "
+					 "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
+		}
+		return;
+	}
+	ESP_LOGI(SD_TAG, "Filesystem mounted");
+
+	// Card has been initialized, print its properties
+	// sdmmc_card_print_info(stdout, card);
+}
 static esp_err_t append_file(const char *path, char *data) {
     ESP_LOGI(SD_TAG, "Opening file %s", path);
     FILE *f = fopen(path, "a");
