@@ -37,12 +37,19 @@ esp_lcd_panel_handle_t *panel;
 void supervisor_task(void *args) { 
 	while (1) { 
 		// ESP_LOGI("SUPERVISOR_TASK", "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY); // Block waiting for accelerometer to notify
+		ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); // Block waiting for accelerometer to notify
 		ESP_LOGI(SUPERVISOR_TAG, "Suspending accel, GPS, and display"); 
 		vTaskSuspend(accel_handle); 
 		vTaskSuspend(gps_handle); 
 		vTaskSuspend(display_handle); 
-		xTaskNotifyGive(camera_handle); // Notify camera to stop recording 
+		ESP_LOGI(SUPERVISOR_TAG, "Notifying camera"); 
+		xTaskNotifyGiveIndexed(camera_handle, INDEX_IMPACT); 
+		ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); 
+		ESP_LOGI(SUPERVISOR_TAG, "Received ACK from camera"); 
+		ESP_LOGI(SUPERVISOR_TAG, "Resuming accel, GPS, and display"); 
+		vTaskResume(accel_handle); 
+		vTaskResume(gps_handle); 
+		vTaskResume(display_handle); 
 	}
 }
 
@@ -51,7 +58,7 @@ void app_main(void) {
 	sdmmc_card_t card;
 
 	if (init_camera() != ESP_OK) {
-		ESP_LOGE(CAMERA_TAG, "Failed to initialize camera");
+		ESP_LOGE(MAIN_TAG, "Failed to initialize camera");
 		return;
 	}
 

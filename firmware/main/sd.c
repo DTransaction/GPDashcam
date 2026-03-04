@@ -101,9 +101,8 @@ void sd_task(void *args) {
 			FILE *file = fopen(CAMERA_FILE_PATH, "w"); 
 			fwrite(camera_fb->buf, 1, camera_fb->len, file); 
 			fclose(file); 
-			ESP_LOGI(SD_TAG, "Image saved to %s", CAMERA_FILE_PATH); 
+			ESP_LOGI(SD_TAG, "Image saved to %s (%zu bytes)", CAMERA_FILE_PATH, camera_fb->len); 
 			esp_camera_fb_return(camera_fb);
-			ESP_LOGI(SD_TAG, "Returned FB"); 
 		}
 		// GPS data logging 
 		if (xQueueReceive(gps_to_sd_queue, &gps_data, 10)) {

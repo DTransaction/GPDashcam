@@ -48,9 +48,9 @@ void camera_task(void *args) {
 	camera_fb_t *camera_fb; 
 
 	while(1) { 
-		if (ulTaskNotifyTake(pdTRUE, 0)) { // Check for notification
+		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) { // Check for notification
 			ESP_LOGI(CAMERA_TAG, "Notified to stop recording"); 
-			// Need to notify supervisor
+			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
 			vTaskSuspend(NULL);
 		}
 		ESP_LOGI(CAMERA_TAG, "Capturing image...");
@@ -59,7 +59,6 @@ void camera_task(void *args) {
 			ESP_LOGE(CAMERA_TAG, "Failed to get frame buffer");
 			return;
 		}
-		ESP_LOGI(CAMERA_TAG, "Picture captured! Size: %zu bytes", camera_fb->len);
 		
 		if (CONFIG_FB_COUNT == 1) { 
 			xQueueOverwrite(camera_to_sd_queue, &camera_fb);
