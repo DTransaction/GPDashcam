@@ -30,9 +30,10 @@ esp_err_t init_camera(void) {
 		.ledc_timer	  = LEDC_TIMER_0,
 		.ledc_channel	= LEDC_CHANNEL_0,
 		.pixel_format	= PIXFORMAT_JPEG,
-		.frame_size	  = FRAMESIZE_QHD,
+		.frame_size = FRAMESIZE_VGA,
 		.jpeg_quality	= CONFIG_JPEG_QUALITY,
-		.fb_count		= CONFIG_FB_COUNT
+		.fb_count		= CONFIG_FB_COUNT,
+		// .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
 	};
 
 	esp_err_t err = esp_camera_init(&camera_config);
@@ -41,6 +42,15 @@ esp_err_t init_camera(void) {
 	} else {
 		ESP_LOGI(CAMERA_TAG, "Camera initialized successfully");
 	}
+	// sensor_t *s = esp_camera_sensor_get();
+	// s->set_gain_ctrl(s, 0);
+	// s->set_exposure_ctrl(s, 0);
+	// s->set_whitebal(s, 0);
+	// s->set_awb_gain(s, 0);
+	// s->set_brightness(s, 0);
+	// s->set_contrast(s, 0);
+	// s->set_saturation(s, 0);
+	// s->set_denoise(s, 0);
 	return err;
 }
 void camera_task(void *args) { 
@@ -49,9 +59,9 @@ void camera_task(void *args) {
 
 	while(1) { 
 		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) { // Check for notification
-			ESP_LOGI(CAMERA_TAG, "Notified to stop recording"); 
+			ESP_LOGI(CAMERA_TAG, "Notified of an impact"); 
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
-			vTaskSuspend(NULL);
+			ESP_LOGI(CAMERA_TAG, "Resuming capture"); 
 		}
 		ESP_LOGI(CAMERA_TAG, "Capturing image...");
 		camera_fb = esp_camera_fb_get();
@@ -65,5 +75,8 @@ void camera_task(void *args) {
 		} else if (CONFIG_FB_COUNT > 1) { 
 			xQueueSendToFront(camera_to_sd_queue, &camera_fb, portMAX_DELAY); 
 		}
+		// Temporary delay to slow down camera capture 
+		vTaskDelay(pdMS_TO_TICKS(500));
+		// ESP_LOGI(CAMERA_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 	}
 }
