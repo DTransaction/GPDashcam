@@ -2,3 +2,4 @@ dependencies:
   idf:
     version: '>=5.0.0'
   espressif/esp32-camera: ^2.1.4
+  espressif/esp-tflite-micro: '*'
