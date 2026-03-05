@@ -65,6 +65,19 @@ menu "GPDashcam configuration"
 			int "SCL pin number"
 			default 2
 	endmenu
+	menu "Accelerometer"
+		config IMPACT_GFORCE_THRESHOLD
+			int "Impact G-force threshold"
+			default 2
+		config POLL_RATE
+			int "Poll rate"
+			default 4
+	endmenu
+	menu "Display"
+		config REFRESH_RATE
+			int "Display refresh rate (Hz)"
+			default 4
+	endmenu
 	menu "UART"
 		config RX_PIN_NUM
 			int "RX pin number"
