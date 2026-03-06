@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c_master.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
@@ -184,7 +185,36 @@ void display_task(void *args) {
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
 
+	uint32_t gpio_num;
+	uint8_t button0_pressed = 0; 
+	uint8_t button1_pressed = 0; 
+
     while (1) {
+        if (xQueueReceive(gpio_event_queue, &gpio_num, pdMS_TO_TICKS(1000/CONFIG_REFRESH_RATE))) {
+			vTaskDelay(pdMS_TO_TICKS(CONFIG_DEBOUNCE_TIME_MS));
+			if (gpio_num == CONFIG_GPIO_INPUT0) {
+				if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) { 
+					ESP_LOGI(DISPLAY_TAG, "Button 0 Down"); 
+					button0_pressed = 1; 
+				} 
+				if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
+					ESP_LOGI(DISPLAY_TAG, "Button 0 Up"); 
+					button0_pressed = 0; 
+				} 
+				gpio_intr_enable(CONFIG_GPIO_INPUT0);
+			}
+			else if (gpio_num == CONFIG_GPIO_INPUT1) {
+				if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 0) && !button1_pressed) { 
+					ESP_LOGI(DISPLAY_TAG, "Button 1 Down"); 
+					button1_pressed = 1; 
+				} 
+				if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 1) && button1_pressed) { 
+					ESP_LOGI(DISPLAY_TAG, "Button 1 Up"); 
+					button1_pressed = 0; 
+				}
+				gpio_intr_enable(CONFIG_GPIO_INPUT1);
+			}
+        }
 		xQueueReceive(gps_to_display_queue, &gps_data, 0);
 		xQueueReceive(accel_to_display_queue, &accel_data, 0);
 		snprintf(buffer, sizeof(buffer), 
@@ -211,7 +241,6 @@ void display_task(void *args) {
 		draw_string(0, 0, buffer);
 		esp_lcd_panel_draw_bitmap(*panel, 0, 0, LCD_H, LCD_V, oled_buffer);
 		// ESP_LOGI(DISPLAY_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
-		vTaskDelay(pdMS_TO_TICKS(1000/CONFIG_REFRESH_RATE));
 		
     }
 }

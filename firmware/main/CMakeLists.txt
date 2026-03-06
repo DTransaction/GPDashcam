@@ -10,6 +10,7 @@ idf_component_register(
 	"file_server.c"
 	"uart.c"
 	"i2c.c"
+	"gpio.c"
 	INCLUDE_DIRS "../include"
 	REQUIRES fatfs esp_lcd nvs_flash esp_http_server esp_wifi esp_event esp_netif vfs
 	EMBED_FILES "favicon.ico" "upload_script.html")

@@ -12,6 +12,7 @@
 #include "display.h"
 #include "file_server.h"
 #include "global.h"
+#include "gpio.h"
 #include "gps.h"
 #include "i2c.h"
 #include "sd.h"
@@ -30,6 +31,7 @@ QueueHandle_t accel_to_display_queue;
 QueueHandle_t gps_to_display_queue; 
 QueueHandle_t gps_to_sd_queue; 
 QueueHandle_t camera_to_sd_queue; 
+QueueHandle_t gpio_event_queue; 
 i2c_master_bus_handle_t i2c_bus;
 i2c_master_dev_handle_t i2c_accel_handle;
 esp_lcd_panel_handle_t *panel;
@@ -64,6 +66,7 @@ void app_main(void) {
 
 	mount_sd(&card); 
 	init_i2c(&i2c_bus); 
+	init_gpio(); 
 	init_uart(); 
 	init_accel(&i2c_accel_handle);
 	init_display(panel); 
@@ -82,6 +85,8 @@ void app_main(void) {
 	if (!gps_to_sd_queue) ESP_LOGE(MAIN_TAG, "GPS to SD queue creation failed"); 
 	camera_to_sd_queue = xQueueCreate(CONFIG_FB_COUNT, sizeof(camera_fb_t*)); 
 	if (!camera_to_sd_queue) ESP_LOGE(MAIN_TAG, "Camera to SD queue creation failed"); 
+    gpio_event_queue = xQueueCreate(5, sizeof(uint32_t));
+	if (!gpio_event_queue) ESP_LOGE(MAIN_TAG, "GPIO event queue creation failed"); 
 
 	xTaskCreatePinnedToCore(supervisor_task, SUPERVISOR_TAG, 4096, NULL, 6, &supervisor_handle, 1);
 	ESP_LOGI(MAIN_TAG, "Supervisor task created");
