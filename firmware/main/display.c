@@ -17,6 +17,15 @@
 #include "display.h"
 #include "global.h"
 
+#define NUM_DISPLAY_MODES 4
+
+typedef enum {
+	ACCELEROMETER,
+	GPS,
+	TIME,
+	WIFI
+} DisplayMode;
+
 // 5x7 font table (ASCII 0x20–0x7F)
 static const uint8_t font5x7[96][5] = {
     {0x00,0x00,0x00,0x00,0x00}, // ' '
@@ -116,6 +125,16 @@ static const uint8_t font5x7[96][5] = {
     {0x02,0x01,0x02,0x04,0x02}, // '~'
 };
 
+static DisplayMode next_mode(DisplayMode mode) { 
+	if (mode >= NUM_DISPLAY_MODES) return 0;
+	else return (mode + 1);
+}
+
+static DisplayMode prev_mode(DisplayMode mode) { 
+	if (mode == 0) return NUM_DISPLAY_MODES - 1;
+	else return (mode - 1);
+}
+
 void init_display(esp_lcd_panel_handle_t *panel) { 
 	// Initialize display 
     ESP_LOGI(DISPLAY_TAG, "Install SSD1306 panel driver");
@@ -179,8 +198,9 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 		++str; 
     }
 }
-// Task to update sensor display
+
 void display_task(void *args) {
+	DisplayMode display_mode = 0; 
     char buffer[BUFFER_SIZE];
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
@@ -190,58 +210,76 @@ void display_task(void *args) {
 	uint8_t button1_pressed = 0; 
 
     while (1) {
+		// Button press receive and debouncing 
+		// Delay acts as refresh rate delay
         if (xQueueReceive(gpio_event_queue, &gpio_num, pdMS_TO_TICKS(1000/CONFIG_REFRESH_RATE))) {
 			vTaskDelay(pdMS_TO_TICKS(CONFIG_DEBOUNCE_TIME_MS));
 			if (gpio_num == CONFIG_GPIO_INPUT0) {
 				if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) { 
-					ESP_LOGI(DISPLAY_TAG, "Button 0 Down"); 
+					display_mode = next_mode(display_mode); 
 					button0_pressed = 1; 
-				} 
-				if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
-					ESP_LOGI(DISPLAY_TAG, "Button 0 Up"); 
+				} else if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
 					button0_pressed = 0; 
 				} 
 				gpio_intr_enable(CONFIG_GPIO_INPUT0);
 			}
 			else if (gpio_num == CONFIG_GPIO_INPUT1) {
 				if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 0) && !button1_pressed) { 
-					ESP_LOGI(DISPLAY_TAG, "Button 1 Down"); 
+					display_mode = prev_mode(display_mode); 
 					button1_pressed = 1; 
-				} 
-				if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 1) && button1_pressed) { 
-					ESP_LOGI(DISPLAY_TAG, "Button 1 Up"); 
+				} else if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 1) && button1_pressed) { 
 					button1_pressed = 0; 
 				}
 				gpio_intr_enable(CONFIG_GPIO_INPUT1);
 			}
         }
-		xQueueReceive(gps_to_display_queue, &gps_data, 0);
-		xQueueReceive(accel_to_display_queue, &accel_data, 0);
-		snprintf(buffer, sizeof(buffer), 
-				"A: %.2f %.2f %.2f\n \
-				Total mag: %.2f\n\
-				Date: %02d-%02d-%04d\n\
-				Time: %02d:%02d:%02d\n\
-				Lat: %f\n\
-				Lon: %f", 
-			accel_data.x, 
-			accel_data.y, 
-			accel_data.z,
-			accel_data.total_magnitude,
-			gps_data.day, 
-			gps_data.month, 
-			gps_data.year, 
-			gps_data.hour, 
-			gps_data.minute, 
-			gps_data.second, 
-			gps_data.latitude,
-			gps_data.longitude
-		);
+		switch (display_mode) {
+			case ACCELEROMETER:
+				xQueueReceive(accel_to_display_queue, &accel_data, 0);
+				snprintf(buffer, sizeof(buffer), 
+					"A: %.2f %.2f %.2f\nTotal mag: %.2f\n",
+					accel_data.x, 
+					accel_data.y, 
+					accel_data.z,
+					accel_data.total_magnitude
+				);
+				break;
+			case GPS: 
+				xQueueReceive(gps_to_display_queue, &gps_data, 0);
+				snprintf(buffer, sizeof(buffer), 
+					"Lat: %f\nLon: %f", 
+					gps_data.latitude,
+					gps_data.longitude
+				);
+				break;
+			case TIME: 
+				xQueueReceive(gps_to_display_queue, &gps_data, 0);
+				snprintf(buffer, sizeof(buffer), 
+					"Date: %02d-%02d-%04d\nTime: %02d:%02d:%02d\n",
+					gps_data.day, 
+					gps_data.month, 
+					gps_data.year, 
+					gps_data.hour, 
+					gps_data.minute, 
+					gps_data.second
+				);
+				break;
+			case WIFI: 
+				snprintf(buffer, sizeof(buffer),
+					"SSID: gpdashcam\nPass: gpdashcam\n"
+					"To download files,\n"
+					"open your browser and\n"
+					"go to 192.168.4.1"
+				);
+				break;
+			default: 
+				display_mode = 0; 
+				break; 
+		}
 		oled_clear();
 		draw_string(0, 0, buffer);
 		esp_lcd_panel_draw_bitmap(*panel, 0, 0, LCD_H, LCD_V, oled_buffer);
 		// ESP_LOGI(DISPLAY_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
-		
     }
 }
 
