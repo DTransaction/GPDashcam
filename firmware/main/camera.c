@@ -33,8 +33,12 @@
 // -- TINYML --
 #define ML_W 96
 #define ML_H 96
-uint8_t ml_gray[ML_W * ML_H];
+#define CHANNELS 3
+int8_t ml_input[ML_W * ML_H * CHANNELS];
 #define RED565   0x07E0
+#define TENSOR_SIZE (ML_W * ML_H * 3)
+#define TENSOR_SIZE2 (ML_W * ML_H * 2)
+// #define TENSOR_SIZE2 27648
 
 static camera_config_t camera_config = {
     .pin_reset       = CAM_PIN_RESET,
@@ -59,10 +63,11 @@ static camera_config_t camera_config = {
     // .pixel_format = PIXFORMAT_GRAYSCALE,
     .pixel_format = PIXFORMAT_RGB565,
     // .frame_size      = FRAMESIZE_FHD,
-    // .frame_size      = FRAMESIZE_VGA,
-    .frame_size      = FRAMESIZE_QVGA, //works
+    .frame_size      = FRAMESIZE_VGA,
+    // .frame_size      = FRAMESIZE_QVGA, //works
     // .frame_size      = FRAMESIZE_CIF, //works less well?
     // .frame_size = FRAMESIZE_96X96,
+    // .frame_size = FRAMESIZE_320X320,
     .jpeg_quality    = 10,
     .fb_count        = 1,
     .fb_location = CAMERA_FB_IN_PSRAM
@@ -78,7 +83,7 @@ static esp_err_t init_camera(void)
         ESP_LOGI(CAMERA_TAG, "Camera initialized successfully");
         sensor_t * s = esp_camera_sensor_get();
         s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
-        s->set_aec_value(s, 1500);   // Lower this value to reduce exposure (0-1200)
+        s->set_aec_value(s, 800);   // Lower this value to reduce exposure (0-1200)
 
         tinyml_init();
     }
@@ -112,6 +117,8 @@ void camera_task(void *args)
 
     int frame = 0;
     char path[32];
+    char path_txt[32];
+
     while ((esp_timer_get_time() - start) < (RECORD_TIME_MS * 1000)) {
 
         camera_fb_t *fb = esp_camera_fb_get();
@@ -120,22 +127,49 @@ void camera_task(void *args)
             continue;
         }
 
-        rgb565_to_gray96(
-            (uint16_t *)fb->buf,
-            fb->width,
-            fb->height,
-            ml_gray);
+        uint16_t *pixels = (uint16_t*)fb->buf;
+        rgb565_to_rgb888(pixels, 96, 96, ml_input);
 
-        float person_score = run_person_detection(ml_gray);
+        // rgb565_to_rgb96(
+        //     (uint16_t *)fb->buf,
+        //     fb->width,
+        //     fb->height,
+        //     ml_input);
 
-        if (person_score > 0.5f) {
-            draw_status_bar_rgb565(
-            fb,
-            RED565);
+        // rgb565_to_rgb96_char(
+        //     no_test_image_rgb2,
+        //     128,
+        //     96,
+        //     ml_input);
+
+
+        // debug image processing
+        snprintf(path_txt, sizeof(path_txt), "/sdcard/t%05d.bin", frame);
+        FILE *f_txt = fopen(path_txt, "wb");
+
+        if (f_txt == NULL) {
+            printf("Failed to open tensor file\n");
+            return;
         }
+
+        size_t written = fwrite(ml_input, sizeof(int8_t), TENSOR_SIZE, f_txt);
+
+        if (written != TENSOR_SIZE) {
+            printf("Write error: %d bytes written\n", (int)written);
+        } else {
+            printf("Tensor written successfully\n");
+        }
+
+        fclose(f_txt);
+        
+
+        bool stop_score = run_stop_detection(ml_input);
+        // bool stop_score = run_stop_detection((int8_t *)fb->buf=);
+
+        // run_test_image();
         
         //convert frame to jpg to save to sd card
-        sprintf(path, "/sdcard/f%05d.jpg", frame++);
+        sprintf(path, "/sdcard/f%05d.jpg", frame);
         FILE *f = fopen(path, "wb");
         bool ok = frame2jpg_cb(fb, 90, jpg_encode_stream, f);
         fclose(f);
@@ -147,6 +181,8 @@ void camera_task(void *args)
         ESP_LOGI(CAMERA_TAG, "Frame: %zu bytes", fb->len);
 
         esp_camera_fb_return(fb);
+
+        ++frame;
     }
 
     ESP_LOGI(CAMERA_TAG, "Images saved to SD card");
