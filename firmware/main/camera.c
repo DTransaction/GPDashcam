@@ -11,7 +11,7 @@
 #include "person_detection_runner.h"
 
 #define VIDEO_FILE_PATH "/sdcard/video.mj2"
-#define RECORD_TIME_MS  10000   // record 10 seconds
+#define RECORD_TIME_MS  20000   // record 10 seconds
 
 // ESP32S3 (WROOM) OV5640 pin mapping
 #define CAM_PIN_RESET   -1   // Software reset
@@ -34,11 +34,16 @@
 #define ML_W 96
 #define ML_H 96
 #define CHANNELS 3
-int8_t ml_input[ML_W * ML_H * CHANNELS];
+
 #define RED565   0x07E0
 #define TENSOR_SIZE (ML_W * ML_H * 3)
 #define TENSOR_SIZE2 (ML_W * ML_H * 2)
-// #define TENSOR_SIZE2 27648
+
+// int8_t ml_input[ML_W * ML_H * CHANNELS];
+int8_t ml_input[TENSOR_SIZE];
+// const uint8_t init_input[ML_W * ML_H * 2] = { [0] = 0xF, [1] = 0x8 };
+const uint8_t init_input[TENSOR_SIZE] = { 0xF8 };
+
 
 static camera_config_t camera_config = {
     .pin_reset       = CAM_PIN_RESET,
@@ -63,10 +68,10 @@ static camera_config_t camera_config = {
     // .pixel_format = PIXFORMAT_GRAYSCALE,
     .pixel_format = PIXFORMAT_RGB565,
     // .frame_size      = FRAMESIZE_FHD,
-    .frame_size      = FRAMESIZE_VGA,
+    // .frame_size      = FRAMESIZE_VGA,
     // .frame_size      = FRAMESIZE_QVGA, //works
     // .frame_size      = FRAMESIZE_CIF, //works less well?
-    // .frame_size = FRAMESIZE_96X96,
+    .frame_size = FRAMESIZE_96X96,
     // .frame_size = FRAMESIZE_320X320,
     .jpeg_quality    = 10,
     .fb_count        = 1,
@@ -74,8 +79,7 @@ static camera_config_t camera_config = {
 };
 
 
-static esp_err_t init_camera(void)
-{
+static esp_err_t init_camera(void) {
     esp_err_t err = esp_camera_init(&camera_config);
     if (err != ESP_OK) {
         ESP_LOGE(CAMERA_TAG, "Camera init failed: %s", esp_err_to_name(err));
@@ -83,7 +87,7 @@ static esp_err_t init_camera(void)
         ESP_LOGI(CAMERA_TAG, "Camera initialized successfully");
         sensor_t * s = esp_camera_sensor_get();
         s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
-        s->set_aec_value(s, 800);   // Lower this value to reduce exposure (0-1200)
+        s->set_aec_value(s, 1100);   // Lower this value to reduce exposure (0-1200)
 
         tinyml_init();
     }
@@ -100,10 +104,7 @@ size_t jpg_encode_stream(void *arg, size_t index, const void *data, size_t len)
     return (written == len) ? len : 0;
 }
 
-void camera_task(void *args)
-{
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
+void camera_task(void *args) {
     ESP_LOGI(CAMERA_TAG, "Starting camera");
 
     if (init_camera() != ESP_OK) {
@@ -127,8 +128,31 @@ void camera_task(void *args)
             continue;
         }
 
-        uint16_t *pixels = (uint16_t*)fb->buf;
-        rgb565_to_rgb888(pixels, 96, 96, ml_input);
+        // FILE *f_zero = fopen("/sdcard/zero.bin", "wb");
+
+        // if (f_zero == NULL) {
+        //     printf("Failed to open tensor file\n");
+        //     return;
+        // }
+
+        // size_t written2 = fwrite(fb->buf, sizeof(uint8_t), TENSOR_SIZE2, f_zero);
+
+        // if (written2 != TENSOR_SIZE2) {
+        //     printf("Write error: %d bytes written\n", (int)written2);
+        // } else {
+        //     printf("Tensor written successfully\n");
+        // }
+
+        // fclose(f_zero);
+
+        // uint16_t *pixels = (uint16_t*)fb->buf;
+
+        resize_and_rgb565_to_rgb888_2(fb->buf, 96, 96, ml_input);
+
+        // rgb565_bilinear_resize_to_tensor(pixels, 640, 480, ml_input);
+
+        // resize_and_rgb565_to_rgb888_2(fb->buf, 96, 96, ml_input);
+
 
         // rgb565_to_rgb96(
         //     (uint16_t *)fb->buf,
@@ -141,9 +165,10 @@ void camera_task(void *args)
         //     128,
         //     96,
         //     ml_input);
+        
 
 
-        // debug image processing
+        // sd card write for debug image processing
         snprintf(path_txt, sizeof(path_txt), "/sdcard/t%05d.bin", frame);
         FILE *f_txt = fopen(path_txt, "wb");
 
@@ -161,10 +186,8 @@ void camera_task(void *args)
         }
 
         fclose(f_txt);
-        
 
         bool stop_score = run_stop_detection(ml_input);
-        // bool stop_score = run_stop_detection((int8_t *)fb->buf=);
 
         // run_test_image();
         
