@@ -78,6 +78,17 @@ menu "GPDashcam configuration"
 			int "Display refresh rate (Hz)"
 			default 4
 	endmenu
+	menu "GPIO"
+		config GPIO_INPUT0
+			int "GPIO input 0 pin number"
+			default 14
+		config GPIO_INPUT1
+			int "GPIO input 1 pin number"
+			default 48
+		config DEBOUNCE_TIME_MS
+			int "Button debounce time in ms"
+			default 40
+	endmenu
 	menu "UART"
 		config RX_PIN_NUM
 			int "RX pin number"

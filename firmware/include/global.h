@@ -19,6 +19,7 @@ extern QueueHandle_t accel_to_display_queue;
 extern QueueHandle_t gps_to_display_queue; 
 extern QueueHandle_t gps_to_sd_queue; 
 extern QueueHandle_t camera_to_sd_queue; 
+extern QueueHandle_t gpio_event_queue; 
 
 extern i2c_master_bus_handle_t i2c_bus;
 extern i2c_master_dev_handle_t i2c_accel_handle;
