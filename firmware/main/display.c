@@ -237,7 +237,8 @@ void display_task(void *args) {
 			case ACCELEROMETER:
 				xQueueReceive(accel_to_display_queue, &accel_data, 0);
 				snprintf(buffer, sizeof(buffer), 
-					"A: %.2f %.2f %.2f\nTotal mag: %.2f\n",
+					"A: %.2f %.2f %.2f\n"
+					"Total mag: %.2f\n",
 					accel_data.x, 
 					accel_data.y, 
 					accel_data.z,
@@ -247,18 +248,20 @@ void display_task(void *args) {
 			case GPS: 
 				xQueueReceive(gps_to_display_queue, &gps_data, 0);
 				snprintf(buffer, sizeof(buffer), 
-					"Lat: %f\nLon: %f", 
-					gps_data.latitude,
-					gps_data.longitude
+					"Lat: %f\n"
+					"Lon: %f",
+					gps_data.longitude,
+					gps_data.latitude
 				);
 				break;
 			case TIME: 
 				xQueueReceive(gps_to_display_queue, &gps_data, 0);
 				snprintf(buffer, sizeof(buffer), 
-					"Date: %02d-%02d-%04d\nTime: %02d:%02d:%02d\n",
+					"Date: %02d-%02d-%04d\n"
+					"Time: %02d:%02d:%02d\n", 
 					gps_data.day, 
 					gps_data.month, 
-					gps_data.year, 
+					gps_data.year,
 					gps_data.hour, 
 					gps_data.minute, 
 					gps_data.second
@@ -266,10 +269,12 @@ void display_task(void *args) {
 				break;
 			case WIFI: 
 				snprintf(buffer, sizeof(buffer),
-					"SSID: gpdashcam\nPass: gpdashcam\n"
+					"SSID: %s\nPass: %s\n"
 					"To download files,\n"
 					"open your browser and\n"
-					"go to 192.168.4.1"
+					"go to 192.168.4.1", 
+					CONFIG_ESP_WIFI_SSID, 
+					CONFIG_ESP_WIFI_PASSWORD
 				);
 				break;
 			default: 
