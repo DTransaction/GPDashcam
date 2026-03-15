@@ -11,7 +11,7 @@
 #include "person_detection_runner.h"
 
 #define VIDEO_FILE_PATH "/sdcard/video.mj2"
-#define RECORD_TIME_MS  20000   // record 10 seconds
+    #define RECORD_TIME_MS  45000   // record 10 seconds
 
 // ESP32S3 (WROOM) OV5640 pin mapping
 #define CAM_PIN_RESET   -1   // Software reset
@@ -34,16 +34,8 @@
 #define ML_W 96
 #define ML_H 96
 #define CHANNELS 3
-
-#define RED565   0x07E0
 #define TENSOR_SIZE (ML_W * ML_H * 3)
-#define TENSOR_SIZE2 (ML_W * ML_H * 2)
-
-// int8_t ml_input[ML_W * ML_H * CHANNELS];
 int8_t ml_input[TENSOR_SIZE];
-// const uint8_t init_input[ML_W * ML_H * 2] = { [0] = 0xF, [1] = 0x8 };
-const uint8_t init_input[TENSOR_SIZE] = { 0xF8 };
-
 
 static camera_config_t camera_config = {
     .pin_reset       = CAM_PIN_RESET,
@@ -64,14 +56,14 @@ static camera_config_t camera_config = {
     .xclk_freq_hz    = 20000000,
     .ledc_timer      = LEDC_TIMER_0,
     .ledc_channel    = LEDC_CHANNEL_0,
-    // .pixel_format    = PIXFORMAT_JPEG,
+    // .pixel_format    = PIXFORMAT_JPEG,  
     // .pixel_format = PIXFORMAT_GRAYSCALE,
     .pixel_format = PIXFORMAT_RGB565,
     // .frame_size      = FRAMESIZE_FHD,
-    // .frame_size      = FRAMESIZE_VGA,
+    .frame_size      = FRAMESIZE_VGA,
     // .frame_size      = FRAMESIZE_QVGA, //works
     // .frame_size      = FRAMESIZE_CIF, //works less well?
-    .frame_size = FRAMESIZE_96X96,
+    // .frame_size = FRAMESIZE_96X96,
     // .frame_size = FRAMESIZE_320X320,
     .jpeg_quality    = 10,
     .fb_count        = 1,
@@ -128,46 +120,8 @@ void camera_task(void *args) {
             continue;
         }
 
-        // FILE *f_zero = fopen("/sdcard/zero.bin", "wb");
-
-        // if (f_zero == NULL) {
-        //     printf("Failed to open tensor file\n");
-        //     return;
-        // }
-
-        // size_t written2 = fwrite(fb->buf, sizeof(uint8_t), TENSOR_SIZE2, f_zero);
-
-        // if (written2 != TENSOR_SIZE2) {
-        //     printf("Write error: %d bytes written\n", (int)written2);
-        // } else {
-        //     printf("Tensor written successfully\n");
-        // }
-
-        // fclose(f_zero);
-
-        // uint16_t *pixels = (uint16_t*)fb->buf;
-
-        resize_and_rgb565_to_rgb888_2(fb->buf, 96, 96, ml_input);
-
-        // rgb565_bilinear_resize_to_tensor(pixels, 640, 480, ml_input);
-
-        // resize_and_rgb565_to_rgb888_2(fb->buf, 96, 96, ml_input);
-
-
-        // rgb565_to_rgb96(
-        //     (uint16_t *)fb->buf,
-        //     fb->width,
-        //     fb->height,
-        //     ml_input);
-
-        // rgb565_to_rgb96_char(
-        //     no_test_image_rgb2,
-        //     128,
-        //     96,
-        //     ml_input);
+        run_stop_detection(fb->buf, fb->width, fb->height, ml_input);
         
-
-
         // sd card write for debug image processing
         snprintf(path_txt, sizeof(path_txt), "/sdcard/t%05d.bin", frame);
         FILE *f_txt = fopen(path_txt, "wb");
@@ -186,10 +140,6 @@ void camera_task(void *args) {
         }
 
         fclose(f_txt);
-
-        bool stop_score = run_stop_detection(ml_input);
-
-        // run_test_image();
         
         //convert frame to jpg to save to sd card
         sprintf(path, "/sdcard/f%05d.jpg", frame);
