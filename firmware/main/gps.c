@@ -1,3 +1,4 @@
+#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -10,39 +11,15 @@
 #include "uart.h"
 #include "global.h"
 
+#define DEG_TO_RAD (M_PI / 180.0)
+#define KNOTS_TO_M_PER_S 0.514444
+#define EARTH_RADIUS_M 6371000.0
+#define NUM_RMC_FIELDS (10)
+#define NUM_RED_LIGHT_CAMERA 128
+
 static inline uint8_t convert_two_digit2number(const char *digit_char)
 {
     return 10 * (digit_char[0] - '0') + (digit_char[1] - '0');
-}
-
-static uint8_t get_days_of_month(gps_data_t* gps_data){
-	switch (gps_data->month) { 
-		case 1: 
-			return 31; 
-		case 2: 
-			return 28; 
-		case 3: 
-			return 31;
-		case 4: 
-			return 30;
-		case 5: 
-			return 31;
-		case 6: 
-			return 30; 
-		case 7: 
-			return 31;
-		case 8: 
-			return 31; 
-		case 9: 
-			return 30; 
-		case 10: 
-			return 31; 
-		case 11: 
-			return 30; 
-		case 12: 
-			return 31; 
-	}
-	return 0; 
 }
 
 static void parse_date_time(gps_data_t* gps_data) {
@@ -50,16 +27,8 @@ static void parse_date_time(gps_data_t* gps_data) {
 	gps_data->month = convert_two_digit2number(gps_data->raw_date + 2); 
 	gps_data->year = convert_two_digit2number(gps_data->raw_date + 4) + 2000; 
 
-	int8_t adjusted_time = convert_two_digit2number(gps_data->raw_time) + TIME_ZONE;
-	if(adjusted_time < 0) { // Wrap around midnight 
-		gps_data-> hour = adjusted_time + 24; 
-		if(gps_data->day == 1){ // Rollback the month
-			gps_data->day = get_days_of_month(gps_data); 
-			gps_data->month -= 1; 
-		} else { 
-			gps_data->day -= 1; 
-		}
-	}
+	gps_data->hour = convert_two_digit2number(gps_data->raw_time) + CONFIG_TIME_ZONE;
+	if (gps_data->hour > 24) gps_data->hour -= 232;
     gps_data->minute = convert_two_digit2number(gps_data->raw_time + 2);
     gps_data->second = convert_two_digit2number(gps_data->raw_time + 4);
 }
@@ -68,114 +37,144 @@ static uint8_t degrees_to_compass_direction(float degrees){
 	return (uint8_t)((uint16_t)((degrees + 22.5) / 45) % 8);
 }
 
-static float parse_lat_long(const char* value, const char* ll_direction) {
-    float ll = strtof(value, NULL);
+static double parse_lat_long(const char* value) {
+    double ll = strtod(value, NULL);
     int deg = ((int)ll) / 100;
-    float min = ll - (deg * 100);
+    double min = ll - (deg * 100);
     ll = deg + min / 60.0f;
-	if(ll_direction[0] == 'N' || ll_direction[0] == 'E') return ll;
-	return -ll;
+	return ll;
 }
 
-static void parse_fields(char *fields[], gps_data_t *gps_data){ 
-	// Parse for time and date 
-	if(fields[1] && fields[1][0] != '\0' && fields[9] && fields[9][0] != '\0') {
-		strncpy(gps_data->raw_time, fields[1], 9); 
-		gps_data->raw_time[9] = '\0';
-		strncpy(gps_data->raw_date, fields[9], 6); 
-		gps_data->raw_date[6] = '\0';
-		parse_date_time(gps_data); 
-	}
-	// Parse for latitude and longitude 
-	if(fields[3] && fields[3][0] != '\0' &&
-	   fields[4] && fields[4][0] != '\0' &&
-	   fields[5] && fields[5][0] != '\0' &&
-	   fields[6] && fields[6][0] != '\0') {
-		gps_data->latitude = parse_lat_long(fields[3], fields[4]); 
-		gps_data->longitude = parse_lat_long(fields[5], fields[6]); 
-	}
-	// Parse for speed 
-	if(fields[7] && fields[7][0] != '\0') gps_data->speed = strtof(fields[7], NULL) * 0.514444; 
-	// Parse for heading 
-	if(fields[8] && fields[8][0] != '\0') {
-		gps_data->cog = strtof(fields[8], NULL);
-		gps_data->direction = direction_str[degrees_to_compass_direction(gps_data->cog)]; 
-	} else {
-		gps_data->cog = 0;
-		gps_data->direction = ""; 
-	}
+static double distance_lat_lon(double lat1, double lon1, double lat2, double lon2) {
+    double lat1r = lat1 * DEG_TO_RAD;
+    double lat2r = lat2 * DEG_TO_RAD;
+    double lon1r = lon1 * DEG_TO_RAD;
+    double lon2r = lon2 * DEG_TO_RAD;
+
+    double x = (lon2r - lon1r) * cos((lat1r + lat2r) / 2.0);
+    double y = (lat2r - lat1r);
+
+    return sqrt(x*x + y*y) * EARTH_RADIUS_M;
+}
+
+static double distance_to_rl_cam(double lat, double lon, coordinate_t *pois, uint8_t num_pois) {
+    for (uint8_t i = 0; i < num_pois; ++i) {
+        double distance = distance_lat_lon(lat, lon, pois[i].latitude, pois[i].longitude);
+		if (distance <= CONFIG_TRAFFIC_CAMERA_DISTANCE_TRIGGER) {
+			return distance;
+		} 
+    }
+	return -1;
+}
+
+static void process_sentence(gps_data_t *gps_data, char *line) {
+    uint8_t field = 0;
+    char *token = line;
+
+    for (char *p = line; ; ++p) {
+        if (*p == ',' || *p == '\n' || *p == '\0') {
+			char temp = *p;
+            *p = '\0';
+            switch (field) {
+				case 1:  // time
+					strncpy(gps_data->raw_time, token, 9);
+					gps_data->raw_time[9] = '\0';
+					break;
+				case 3:  // latitude
+					gps_data->latitude = parse_lat_long(token);
+					break;
+				case 4:  // N/S
+					if (*token == 'S') {
+						gps_data->latitude *= -1;
+					}
+					break;
+				case 5:  // longitude
+					gps_data->longitude = parse_lat_long(token);
+					break;
+				case 6:  // E/W
+					if (*token == 'W') {
+						gps_data->longitude *= -1;
+					}
+					break;
+				case 7:  // speed
+					gps_data->speed = strtof(token, NULL) * KNOTS_TO_M_PER_S;
+					break;
+				case 8:  // course
+					gps_data->cog = strtof(token, NULL);
+					gps_data->direction = direction_str[degrees_to_compass_direction(gps_data->cog)];
+					break;
+				case 9:  // date
+					strncpy(gps_data->raw_date, token, 6);
+					gps_data->raw_date[6] = '\0';
+					parse_date_time(gps_data);
+					break;
+            }
+            field++;
+            if (field >= NUM_RMC_FIELDS || temp == '\0') return;
+            token = p + 1;
+        }
+    }
 }
 
 void gps_task(void *args) {
-	static const gps_data_t empty_gps_data; 
-    char *buffer = malloc(RX_BUFFER_SIZE + 1); // +1 to ensure '\0' can always be appended
 	gps_data_t gps_data; 
-	char *fields[RMC_SIZE]; 
-	char *sentence_remainder; 
 
-	ESP_LOGI(GPS_TAG, "Initialized"); 
+	coordinate_t coord;
+	coordinate_t rl_camera_coords[NUM_RED_LIGHT_CAMERA];
+	uint8_t rl_camera_count = 0; 
+
+	char *sentence_remainder; 
+	char line[256];
+	int line_pos = 0;
+	uint8_t buffer[256];
+
+	// Receive red light camera coordinates from SD card task 
+	while (xQueueReceive(sd_to_gps_queue, &coord, pdMS_TO_TICKS(500)) == pdPASS) { 
+		if (rl_camera_count < NUM_RED_LIGHT_CAMERA) { 
+			if (coord.latitude == 0 || coord.longitude == 0) continue; 
+			rl_camera_coords[rl_camera_count++] = coord;
+		} else { 
+			ESP_LOGW(GPS_TAG, "Received more than %d red light camera coordinates", NUM_RED_LIGHT_CAMERA);
+			break; 
+		}
+	}
+	coordinate_t test_coord = {45.38470127201655, -75.69780310498919};
+	rl_camera_coords[rl_camera_count++] = test_coord;
+	vQueueDelete(sd_to_gps_queue); 
+	ESP_LOGI(GPS_TAG, "Logged %d red light camera POIs", rl_camera_count);
 
 	while(1) {
-		uint8_t len = uart_read_bytes(UART_NUM_1, buffer, RX_BUFFER_SIZE, portMAX_DELAY);
-		if(len == 0) continue;
-
-		char *sentence = buffer;
-		// Loop through all received bytes 
-		for(uint8_t i=0; i<len; ++i) {
-			if(buffer[i]=='\n') {
-				// Replace detected newline with the string complete character 
-				// Now sentence has the line 
-				buffer[i]='\0';
-
-				// Check for $GPRMC that contains data 
-				if (sentence[5]!='C' || strlen(sentence)<26) { 
-					sentence = buffer+i+1; // Shift line read pointer over 
-					continue; 
+		uint16_t len = uart_read_bytes(UART_NUM_1, buffer, sizeof(buffer), portMAX_DELAY);
+		for (uint16_t i = 0; i < len; i++) {
+			char c = buffer[i];
+			if (c == '\n') {
+				line[line_pos] = '\0';
+				if (strncmp(line, "$GPRMC", 6) == 0) {
+					process_sentence(&gps_data, line);
+					gps_data.rl_cam_distance = distance_to_rl_cam(gps_data.latitude, gps_data.longitude, rl_camera_coords, rl_camera_count);
+					xQueueOverwrite(gps_to_display_queue, &gps_data);
+					xQueueOverwrite(gps_to_sd_queue, &gps_data);
+					// ESP_LOGI(GPS_TAG, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %f degrees, heading %s, RL cam dist: %2.fm", 
+					// 		gps_data.day, 
+					// 		gps_data.month, 
+					// 		gps_data.year, 
+					// 		gps_data.hour, 
+					// 		gps_data.minute, 
+					// 		gps_data.second, 
+					// 		gps_data.latitude,
+					// 		gps_data.longitude,
+					// 		gps_data.speed,
+					// 		gps_data.cog,
+					// 		gps_data.direction,
+					// 		gps_data.rl_cam_distance
+					// 		); 
+					// ESP_LOGI(GPS_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 				}
-
-				uint8_t field_count = 0; 
-				gps_data = empty_gps_data; 
-				sentence_remainder = sentence; 
-				// Parse RMC sentence into an array using comma separation 
-				// Empty fields are still recorded into array to keep consistent
-				// indexing
-				for (char *p = sentence; ; ++p) {
-					if (*p == ',' || *p == '\0') {
-						// Temporarily terminate current field
-						char temp = *p;
-						*p = '\0';
-
-						// store pointer to start of field (even if empty)
-						fields[field_count++] = sentence_remainder;
-
-						// restore character if not end of string
-						if (temp == '\0' || field_count >= RMC_SIZE)
-							break;
-
-						// next field starts after comma
-						sentence_remainder = p + 1;
-					}
-				}
-
-				parse_fields(fields, &gps_data); 
-				xQueueOverwrite(gps_to_display_queue, &gps_data);
-				xQueueOverwrite(gps_to_sd_queue, &gps_data);
-				ESP_LOGI(GPS_TAG, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %f degrees, heading %s", 
-						gps_data.day, 
-						gps_data.month, 
-						gps_data.year, 
-						gps_data.hour, 
-						gps_data.minute, 
-						gps_data.second, 
-						gps_data.latitude,
-						gps_data.longitude,
-						gps_data.speed,
-						gps_data.cog,
-						gps_data.direction
-						); 
-				/*ESP_LOGI(GPS_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL)); ;*/
+				line_pos = 0;
+			}
+			else if (line_pos < sizeof(line) - 1) {
+				line[line_pos++] = c;
 			}
 		}
-		vTaskDelay(pdMS_TO_TICKS(1000));
 	}
 }

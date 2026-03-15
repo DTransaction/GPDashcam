@@ -6,8 +6,6 @@
 #include "string.h"
 
 #define GPS_TAG "GPS_TASK"
-#define RMC_SIZE (13)
-#define TIME_ZONE (-5)
 
 // Direction strings (N, NE, E, SE, etc.)
 static const char* direction_str[] = {
@@ -21,6 +19,11 @@ static const char* direction_str[] = {
     "NW"
 };
 
+typedef struct { 
+	double latitude;
+	double longitude; 
+} coordinate_t;
+
 // RMC structure
 typedef struct {
     char     raw_time[10];
@@ -31,11 +34,12 @@ typedef struct {
     uint8_t  day;
     uint8_t  month;
     uint16_t year;
-    float    latitude;
-    float    longitude;
+    double    latitude;
+    double    longitude;
     float    speed;
     float    cog;         // course over ground
     char*    direction;   // human-readable compass direction
+	double rl_cam_distance;
 } gps_data_t;
 
 void gps_task(void *arg);

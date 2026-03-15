@@ -200,7 +200,7 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 }
 
 void display_task(void *args) {
-	DisplayMode display_mode = 0; 
+	DisplayMode display_mode = 1; 
     char buffer[BUFFER_SIZE];
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
@@ -249,9 +249,11 @@ void display_task(void *args) {
 				xQueueReceive(gps_to_display_queue, &gps_data, 0);
 				snprintf(buffer, sizeof(buffer), 
 					"Lat: %f\n"
-					"Lon: %f",
+					"Lon: %f\n"
+					"RL cam dist: %.0fm",
 					gps_data.longitude,
-					gps_data.latitude
+					gps_data.latitude,
+					gps_data.rl_cam_distance
 				);
 				break;
 			case TIME: 
