@@ -107,9 +107,7 @@ void accelerometer_task(void *args) {
 		// ESP_LOGI(ACCEL_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		if (accel_data.total_magnitude >= CONFIG_IMPACT_GFORCE_THRESHOLD) { 
 			ESP_LOGI(ACCEL_TAG, "%.2fG IMPACT DETECTED", accel_data.total_magnitude); 
-			if (supervisor_handle != NULL) { 
-				xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
-			}
+			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
 		} else { 
 			xQueueOverwrite(accel_to_display_queue, &accel_data);
 		}
