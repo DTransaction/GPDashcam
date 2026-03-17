@@ -62,6 +62,15 @@ static esp_err_t append_file(const char *path, char *data) {
     return ESP_OK;
 }
 
+size_t jpg_encode_stream(void *arg, size_t index, const void *data, size_t len)
+{
+    FILE *f = (FILE *)arg;
+    if (!f) return 0;
+
+    size_t written = fwrite(data, 1, len, f);
+    return (written == len) ? len : 0;
+}
+
 void sd_task(void *args) { 
 	esp_err_t ret;
 	gps_data_t gps_data; 
@@ -78,10 +87,16 @@ void sd_task(void *args) {
 	if (!camera_to_sd_queue) ESP_LOGE(SD_TAG, "Camera to SD queue creation failed"); 
 	while (1) { 
 		if (xQueueReceive(camera_to_sd_queue, &camera_fb, portMAX_DELAY)) {
-			snprintf(file_path, 30, "%s/image%d.jpg", MOUNT_POINT, img_count++);
+			printf("fb len: %d\n", camera_fb->len);
+			sprintf(file_path, "%s/image%d.jpg", MOUNT_POINT, img_count++);
 			FILE *file = fopen(file_path, "wb"); 
-			fwrite(camera_fb->buf, 1, camera_fb->len, file); 
+			// fwrite(camera_fb->buf, 1, camera_fb->len, file); 
+			bool ok = frame2jpg_cb(camera_fb, 90, jpg_encode_stream, file);
 			fclose(file); 
+
+			if(!ok) {
+            ESP_LOGE(SD_TAG, "JPEG compression failed");
+        	}
 
 			time_end = xTaskGetTickCount(); 
 			time = (time_end - time_start) * portTICK_PERIOD_MS;

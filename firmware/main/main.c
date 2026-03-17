@@ -96,9 +96,9 @@ void app_main(void) {
 	ESP_LOGI(MAIN_TAG, "Accelerometer task created");
 	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, NULL, 3, &gps_handle, 1);
 	ESP_LOGI(MAIN_TAG, "GPS task created");
-	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 3000, NULL, 5, &camera_handle, 0); 
+	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 8000, NULL, 5, &camera_handle, 0); 
 	ESP_LOGI(MAIN_TAG, "Camera task created");
-	xTaskCreatePinnedToCore(sd_task, SD_TAG, 3000, NULL, 6, &sd_handle, 0);
+	xTaskCreatePinnedToCore(sd_task, SD_TAG, 8000, NULL, 6, &sd_handle, 0);
 	ESP_LOGI(MAIN_TAG, "SD task created");
 
 	vTaskSuspend(NULL); // Can't continue unless another task calls vTaskResume with this task handle
