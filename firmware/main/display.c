@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -206,8 +207,8 @@ void display_task(void *args) {
 	gps_data_t gps_data;
 
 	uint32_t gpio_num;
-	uint8_t button0_pressed = 0; 
-	uint8_t button1_pressed = 0; 
+	bool button0_pressed = false; 
+	bool button1_pressed = false; 
 
     while (1) {
 		// Button press receive and debouncing 
@@ -221,9 +222,9 @@ void display_task(void *args) {
 				if (gpio_num == CONFIG_GPIO_INPUT0) {
 					if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) { 
 						display_mode = next_mode(display_mode); 
-						button0_pressed = 1; 
+						button0_pressed = true; 
 					} else if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
-						button0_pressed = 0; 
+						button0_pressed = false; 
 					} 
 					gpio_intr_enable(CONFIG_GPIO_INPUT0);
 				}

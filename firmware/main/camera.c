@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_err.h"
@@ -8,34 +9,32 @@
 #include "camera.h"
 #include "global.h"
 
+static camera_config_t camera_config = {
+	.pin_reset = CONFIG_CAM_PIN_RESET,
+	.pin_xclk = CONFIG_CAM_PIN_XCLK,
+	.pin_sccb_sda = CONFIG_CAM_PIN_SIOD,
+	.pin_sccb_scl = CONFIG_CAM_PIN_SIOC,
+	.pin_d7 = CONFIG_CAM_PIN_D7,
+	.pin_d6 = CONFIG_CAM_PIN_D6,
+	.pin_d5 = CONFIG_CAM_PIN_D5,
+	.pin_d4 = CONFIG_CAM_PIN_D4,
+	.pin_d3 = CONFIG_CAM_PIN_D3,
+	.pin_d2 = CONFIG_CAM_PIN_D2,
+	.pin_d1 = CONFIG_CAM_PIN_D1,
+	.pin_d0 = CONFIG_CAM_PIN_D0,
+	.pin_vsync = CONFIG_CAM_PIN_VSYNC,
+	.pin_href = CONFIG_CAM_PIN_HREF,
+	.pin_pclk = CONFIG_CAM_PIN_PCLK,
+	.xclk_freq_hz = CONFIG_XCLK_FREQ_MHZ * 1000000,
+	.ledc_timer = LEDC_TIMER_0,
+	.ledc_channel = LEDC_CHANNEL_0,
+	.pixel_format = PIXFORMAT_RGB565,
+	.frame_size = FRAMESIZE_VGA,
+	.jpeg_quality = CONFIG_JPEG_QUALITY,
+	.fb_count = CONFIG_FB_COUNT,
+};
 
-esp_err_t init_camera(void) {
-	camera_config_t camera_config = {
-		.pin_reset		= CONFIG_CAM_PIN_RESET,
-		.pin_xclk		= CONFIG_CAM_PIN_XCLK,
-		.pin_sccb_sda	= CONFIG_CAM_PIN_SIOD,
-		.pin_sccb_scl	= CONFIG_CAM_PIN_SIOC,
-		.pin_d7		  = CONFIG_CAM_PIN_D7,
-		.pin_d6		  = CONFIG_CAM_PIN_D6,
-		.pin_d5		  = CONFIG_CAM_PIN_D5,
-		.pin_d4		  = CONFIG_CAM_PIN_D4,
-		.pin_d3		  = CONFIG_CAM_PIN_D3,
-		.pin_d2		  = CONFIG_CAM_PIN_D2,
-		.pin_d1		  = CONFIG_CAM_PIN_D1,
-		.pin_d0		  = CONFIG_CAM_PIN_D0,
-		.pin_vsync		= CONFIG_CAM_PIN_VSYNC,
-		.pin_href		= CONFIG_CAM_PIN_HREF,
-		.pin_pclk		= CONFIG_CAM_PIN_PCLK,
-		.xclk_freq_hz	= CONFIG_XCLK_FREQ_MHZ * 1000000,
-		.ledc_timer	  = LEDC_TIMER_0,
-		.ledc_channel	= LEDC_CHANNEL_0,
-		.pixel_format	= PIXFORMAT_JPEG,
-		.frame_size = FRAMESIZE_VGA,
-		.jpeg_quality	= CONFIG_JPEG_QUALITY,
-		.fb_count		= CONFIG_FB_COUNT,
-		// .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
-	};
-
+esp_err_t init_camera() {
 	esp_err_t err = esp_camera_init(&camera_config);
 	if (err != ESP_OK) {
 		ESP_LOGE(CAMERA_TAG, "Camera init failed: %s", esp_err_to_name(err));
@@ -56,7 +55,7 @@ esp_err_t init_camera(void) {
 void camera_task(void *args) { 
 	if (!camera_to_sd_queue) ESP_LOGE(CAMERA_TAG, "Camera to SD queue creation failed"); 
 	camera_fb_t *camera_fb; 
-	uint8_t ml_activated = 0; 
+	bool ml_activated = false; 
 
 	while(1) { 
 		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) { 
@@ -64,15 +63,22 @@ void camera_task(void *args) {
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
 		}
 		if (ulTaskNotifyTakeIndexed(INDEX_ML, pdTRUE, 0)) { 
+			esp_camera_return_all(); 
 			if (!ml_activated) {
 				// Configure camera settings for ML
 				ESP_LOGI(CAMERA_TAG, "Enabling ML mode"); 
-				ml_activated = 1; 
+				ml_activated = true; 
+				camera_config.frame_size = FRAMESIZE_96X96;
+				camera_config.jpeg_quality = 10; 
+				camera_config.fb_count = 1,
 			} else {
 				// Revert camera settings for normal pictures
 				ESP_LOGI(CAMERA_TAG, "Disabling ML mode"); 
-				ml_activated = 0; 
+				ml_activated = false; 
+				camera_config.frame_size = FRAMESIZE_VGA;
+				camera_config.jpeg_quality = CONFIG_JPEG_QUALITY; 
 			}
+			esp_camera_reconfigure(&camera_config); 
 		}
 		// ESP_LOGI(CAMERA_TAG, "Capturing image...");
 		camera_fb = esp_camera_fb_get();
