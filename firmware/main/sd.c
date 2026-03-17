@@ -13,6 +13,9 @@
 #include "esp_camera.h"
 #include "global.h"
 
+#define LATITUDE_INDEX 3
+#define LONGITUDE_INDEX 4
+
 void mount_sd(sdmmc_card_t* card) { 
 	esp_err_t ret;
 	sdmmc_host_t host = SDMMC_HOST_DEFAULT();
@@ -68,7 +71,55 @@ size_t jpg_encode_stream(void *arg, size_t index, const void *data, size_t len)
     if (!f) return 0;
 
     size_t written = fwrite(data, 1, len, f);
-    return (written == len) ? len : 0;
+    return (written == len) ? len : 0; 
+}
+
+static esp_err_t read_file(const char *file_path) {
+	FILE *p_file; 
+	char line[MAX_CHAR_SIZE]; 
+	coordinate_t rl_cam_coord;
+
+    ESP_LOGI(SD_TAG, "Reading file %s", file_path);
+	p_file = fopen(file_path, "r"); 
+	if (p_file == NULL) { 
+		printf("File %s could not be opened.\n", file_path); 
+        return ESP_FAIL;
+	}
+
+	// Ignore the first line of CSV which are headers
+	fgets(line, sizeof(line), p_file);
+	while (fgets(line, sizeof(line), p_file)) { 
+		char *csv = line; 
+		char *p = line;
+
+		for (int csv_index = 0; csv_index <= 4; ++csv_index) {
+			// Seek comma or null terminator
+			while (!(*p == ',' || *p == '\0')) {
+				++p;
+				continue;
+			}
+
+			// Replace comma with null termination
+			*p = '\0';
+			++p;
+
+			switch (csv_index) { 
+				case LATITUDE_INDEX: 
+					rl_cam_coord.latitude = strtod(csv, NULL);
+					break;
+				case LONGITUDE_INDEX:
+					rl_cam_coord.longitude = strtod(csv, NULL);
+					break;
+			}
+			csv = p;
+		}
+
+		if (xQueueSend(sd_to_gps_queue, &rl_cam_coord, pdMS_TO_TICKS(500)) != pdPASS) { 
+			ESP_LOGE(SD_TAG, "Failed to send red light camera coordinate to GPS queue");
+		}
+	}
+	fclose(p_file);
+    return ESP_OK;
 }
 
 void sd_task(void *args) { 
@@ -79,10 +130,13 @@ void sd_task(void *args) {
 
 	char buffer[MAX_CHAR_SIZE];
 	const char *GPS_FILE_PATH = MOUNT_POINT"/gps_data.log"; 
+	const char *RED_LIGHT_CAMERA_FILE_PATH = MOUNT_POINT"/Red_Light_Camera_Locations.csv"; 
 	char file_path[50]; 
 	TickType_t time_start = 1;
 	TickType_t time_end = 1;
 	uint32_t time;
+
+	read_file(RED_LIGHT_CAMERA_FILE_PATH);
 
 	if (!camera_to_sd_queue) ESP_LOGE(SD_TAG, "Camera to SD queue creation failed"); 
 	while (1) { 
@@ -103,27 +157,25 @@ void sd_task(void *args) {
 			ESP_LOGI(SD_TAG, "%s, %zu bytes, %lums, %lu FPS", file_path, camera_fb->len, time, 1000/time); 
 			time_start = xTaskGetTickCount(); 
 			esp_camera_fb_return(camera_fb);
-			// temporary to stop camera after 60 pictures
-			if (img_count >= 60) vTaskSuspend(camera_handle); 
 			// ESP_LOGI(SD_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		}
 		// GPS data logging 
-		if (xQueueReceive(gps_to_sd_queue, &gps_data, 0)) {
-			snprintf(buffer, MAX_CHAR_SIZE, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %.02f degrees, heading %s\n", 
-						gps_data.day, 
-						gps_data.month, 
-						gps_data.year, 
-						gps_data.hour, 
-						gps_data.minute, 
-						gps_data.second, 
-						gps_data.latitude,
-						gps_data.longitude,
-						gps_data.speed,
-						gps_data.cog,
-						gps_data.direction
-						); 
-			ret = append_file(GPS_FILE_PATH, buffer); 
-			if (ret != ESP_OK) return;
-		}
+		// if (xQueueReceive(gps_to_sd_queue, &gps_data, 0)) {
+		// 	snprintf(buffer, MAX_CHAR_SIZE, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %.02f degrees, heading %s\n", 
+		// 				gps_data.day, 
+		// 				gps_data.month, 
+		// 				gps_data.year, 
+		// 				gps_data.hour, 
+		// 				gps_data.minute, 
+		// 				gps_data.second, 
+		// 				gps_data.latitude,
+		// 				gps_data.longitude,
+		// 				gps_data.speed,
+		// 				gps_data.cog,
+		// 				gps_data.direction
+		// 				); 
+		// 	ret = append_file(GPS_FILE_PATH, buffer); 
+		// 	if (ret != ESP_OK) return;
+		// }
 	}
 }

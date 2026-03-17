@@ -8,7 +8,7 @@
 #define LCD_H 128
 #define LCD_V 64
 #define LCD_PIXEL_CLOCK_HZ (400 * 1000)
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE 256
 
 void init_display(esp_lcd_panel_handle_t *panel);
 void display_task(void *arg);

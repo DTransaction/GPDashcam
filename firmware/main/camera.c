@@ -73,18 +73,29 @@ esp_err_t init_camera(void) {
 void camera_task(void *args) { 
 	if (!camera_to_sd_queue) ESP_LOGE(CAMERA_TAG, "Camera to SD queue creation failed"); 
 	camera_fb_t *camera_fb; 
+	uint8_t ml_activated = 0; 
 
 
     char path_txt[32];
 	int frame = 0;
 
 	while(1) { 
-		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) { // Check for notification
+		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) { 
 			ESP_LOGI(CAMERA_TAG, "Notified of an impact"); 
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
-			ESP_LOGI(CAMERA_TAG, "Resuming capture"); 
 		}
-		ESP_LOGI(CAMERA_TAG, "Capturing image...");
+		if (ulTaskNotifyTakeIndexed(INDEX_ML, pdTRUE, 0)) { 
+			if (!ml_activated) {
+				// Configure camera settings for ML
+				ESP_LOGI(CAMERA_TAG, "Enabling ML mode"); 
+				ml_activated = 1; 
+			} else {
+				// Revert camera settings for normal pictures
+				ESP_LOGI(CAMERA_TAG, "Disabling ML mode"); 
+				ml_activated = 0; 
+			}
+		}
+		// ESP_LOGI(CAMERA_TAG, "Capturing image...");
 		camera_fb = esp_camera_fb_get();
 		if (!camera_fb) {
 			ESP_LOGE(CAMERA_TAG, "Failed to get frame buffer");
@@ -121,7 +132,7 @@ void camera_task(void *args) {
 			xQueueSendToFront(camera_to_sd_queue, &camera_fb, portMAX_DELAY); 
 		}
 		// Temporary delay to slow down camera capture 
-		// vTaskDelay(pdMS_TO_TICKS(500));
+		vTaskDelay(pdMS_TO_TICKS(1000));
 		// ESP_LOGI(CAMERA_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 	}
 }

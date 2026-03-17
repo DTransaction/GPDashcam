@@ -22,8 +22,8 @@
 typedef enum {
 	ACCELEROMETER,
 	GPS,
-	TIME,
-	WIFI
+	WIFI, 
+	ML
 } DisplayMode;
 
 // 5x7 font table (ASCII 0x20–0x7F)
@@ -200,7 +200,7 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 }
 
 void display_task(void *args) {
-	DisplayMode display_mode = 0; 
+	DisplayMode display_mode = 1; 
     char buffer[BUFFER_SIZE];
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
@@ -214,23 +214,31 @@ void display_task(void *args) {
 		// Delay acts as refresh rate delay
         if (xQueueReceive(gpio_event_queue, &gpio_num, pdMS_TO_TICKS(1000/CONFIG_REFRESH_RATE))) {
 			vTaskDelay(pdMS_TO_TICKS(CONFIG_DEBOUNCE_TIME_MS));
-			if (gpio_num == CONFIG_GPIO_INPUT0) {
-				if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) { 
-					display_mode = next_mode(display_mode); 
-					button0_pressed = 1; 
-				} else if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
-					button0_pressed = 0; 
-				} 
-				gpio_intr_enable(CONFIG_GPIO_INPUT0);
-			}
-			else if (gpio_num == CONFIG_GPIO_INPUT1) {
-				if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 0) && !button1_pressed) { 
-					display_mode = prev_mode(display_mode); 
-					button1_pressed = 1; 
-				} else if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 1) && button1_pressed) { 
-					button1_pressed = 0; 
+			if (gpio_num) {
+				if (display_mode == (DisplayMode)ML) {
+					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to disable ML mode
 				}
-				gpio_intr_enable(CONFIG_GPIO_INPUT1);
+				if (gpio_num == CONFIG_GPIO_INPUT0) {
+					if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) { 
+						display_mode = next_mode(display_mode); 
+						button0_pressed = 1; 
+					} else if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
+						button0_pressed = 0; 
+					} 
+					gpio_intr_enable(CONFIG_GPIO_INPUT0);
+				}
+				else if (gpio_num == CONFIG_GPIO_INPUT1) {
+					if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 0) && !button1_pressed) { 
+						display_mode = prev_mode(display_mode); 
+						button1_pressed = 1; 
+					} else if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 1) && button1_pressed) { 
+						button1_pressed = 0; 
+					}
+					gpio_intr_enable(CONFIG_GPIO_INPUT1);
+				}
+				if (display_mode == (DisplayMode)ML) {
+					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to disable ML mode
+				}
 			}
         }
 		switch (display_mode) {
@@ -249,16 +257,13 @@ void display_task(void *args) {
 				xQueueReceive(gps_to_display_queue, &gps_data, 0);
 				snprintf(buffer, sizeof(buffer), 
 					"Lat: %f\n"
-					"Lon: %f",
-					gps_data.longitude,
-					gps_data.latitude
-				);
-				break;
-			case TIME: 
-				xQueueReceive(gps_to_display_queue, &gps_data, 0);
-				snprintf(buffer, sizeof(buffer), 
+					"Lon: %f\n"
+					"RL cam dist: %.0fm\n"
 					"Date: %02d-%02d-%04d\n"
-					"Time: %02d:%02d:%02d\n", 
+					"Time: %02d:%02d:%02d", 
+					gps_data.longitude,
+					gps_data.latitude,
+					gps_data.rl_cam_distance,
 					gps_data.day, 
 					gps_data.month, 
 					gps_data.year,
@@ -275,6 +280,11 @@ void display_task(void *args) {
 					"go to 192.168.4.1", 
 					CONFIG_ESP_WIFI_SSID, 
 					CONFIG_ESP_WIFI_PASSWORD
+				);
+				break;
+			case ML: 
+				snprintf(buffer, sizeof(buffer),
+					"ML Mode"
 				);
 				break;
 			default: 
