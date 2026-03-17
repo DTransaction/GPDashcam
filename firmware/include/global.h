@@ -18,6 +18,7 @@ extern TaskHandle_t camera_handle;
 extern QueueHandle_t accel_to_display_queue;
 extern QueueHandle_t gps_to_display_queue; 
 extern QueueHandle_t gps_to_sd_queue; 
+extern QueueHandle_t sd_to_gps_queue; 
 extern QueueHandle_t camera_to_sd_queue; 
 extern QueueHandle_t gpio_event_queue; 
 

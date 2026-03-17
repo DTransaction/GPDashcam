@@ -89,6 +89,14 @@ menu "GPDashcam configuration"
 			int "Button debounce time in ms"
 			default 40
 	endmenu
+	menu "GPS"
+		config TRAFFIC_CAMERA_DISTANCE_TRIGGER
+			int "Traffic camera distance trigger"
+			default 250
+		config TIME_ZONE
+			int "Time zone offset"
+			default -4 
+	endmenu
 	menu "UART"
 		config RX_PIN_NUM
 			int "RX pin number"

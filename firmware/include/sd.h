@@ -10,7 +10,7 @@
 #ifndef SD_H
 #define SD_H
 
-#define MAX_CHAR_SIZE (128)
+#define MAX_CHAR_SIZE (256)
 #define MOUNT_POINT "/sdcard"
 #define SD_TAG "SD_TASK"
 

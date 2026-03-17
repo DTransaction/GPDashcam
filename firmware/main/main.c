@@ -30,6 +30,7 @@ TaskHandle_t camera_handle;
 QueueHandle_t accel_to_display_queue; 
 QueueHandle_t gps_to_display_queue; 
 QueueHandle_t gps_to_sd_queue; 
+QueueHandle_t sd_to_gps_queue; 
 QueueHandle_t camera_to_sd_queue; 
 QueueHandle_t gpio_event_queue; 
 i2c_master_bus_handle_t i2c_bus;
@@ -66,10 +67,10 @@ void app_main(void) {
 
 	mount_sd(&card); 
 	init_i2c(&i2c_bus); 
-	init_gpio(); 
 	init_uart(); 
-	init_accel(&i2c_accel_handle);
 	init_display(panel); 
+	init_accel(&i2c_accel_handle);
+	init_gpio(); 
 
 	ESP_ERROR_CHECK(nvs_flash_init());
 	ESP_ERROR_CHECK(esp_netif_init());
@@ -78,14 +79,17 @@ void app_main(void) {
 	ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
 
 	accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
-	if (!accel_to_display_queue) ESP_LOGE(MAIN_TAG, "Accel to display queue creation failed"); 
 	gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 
-	if (!gps_to_display_queue) ESP_LOGE(MAIN_TAG, "GPS to display queue creation failed"); 
 	gps_to_sd_queue = xQueueCreate(1, sizeof(gps_data_t)); 
-	if (!gps_to_sd_queue) ESP_LOGE(MAIN_TAG, "GPS to SD queue creation failed"); 
+	sd_to_gps_queue = xQueueCreate(10, sizeof(coordinate_t)); 
 	camera_to_sd_queue = xQueueCreate(CONFIG_FB_COUNT, sizeof(camera_fb_t*)); 
+	gpio_event_queue = xQueueCreate(5, sizeof(uint32_t));
+
+	if (!accel_to_display_queue) ESP_LOGE(MAIN_TAG, "Accel to display queue creation failed"); 
+	if (!gps_to_display_queue) ESP_LOGE(MAIN_TAG, "GPS to display queue creation failed"); 
+	if (!gps_to_sd_queue) ESP_LOGE(MAIN_TAG, "GPS to SD queue creation failed"); 
+	if (!sd_to_gps_queue) ESP_LOGE(MAIN_TAG, "SD to GPS queue creation failed"); 
 	if (!camera_to_sd_queue) ESP_LOGE(MAIN_TAG, "Camera to SD queue creation failed"); 
-    gpio_event_queue = xQueueCreate(5, sizeof(uint32_t));
 	if (!gpio_event_queue) ESP_LOGE(MAIN_TAG, "GPIO event queue creation failed"); 
 
 	xTaskCreatePinnedToCore(supervisor_task, SUPERVISOR_TAG, 4096, NULL, 6, &supervisor_handle, 1);
@@ -94,13 +98,13 @@ void app_main(void) {
 	ESP_LOGI(MAIN_TAG, "Display task created");
 	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 4500, NULL, 3, &accel_handle, 1); 
 	ESP_LOGI(MAIN_TAG, "Accelerometer task created");
-	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 4500, NULL, 3, &gps_handle, 1);
+	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 6500, NULL, 3, &gps_handle, 1);
 	ESP_LOGI(MAIN_TAG, "GPS task created");
 	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 3000, NULL, 5, &camera_handle, 0); 
 	ESP_LOGI(MAIN_TAG, "Camera task created");
 	xTaskCreatePinnedToCore(sd_task, SD_TAG, 3000, NULL, 6, &sd_handle, 0);
 	ESP_LOGI(MAIN_TAG, "SD task created");
 
-	vTaskSuspend(NULL); // Can't continue unless another task calls vTaskResume with this task handle
+	vTaskSuspend(NULL);
 }
 
