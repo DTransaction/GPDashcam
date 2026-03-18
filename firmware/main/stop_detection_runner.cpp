@@ -98,7 +98,12 @@ void tinyml_init(void)
 }
 
 int8_t run_stop_detection(const uint8_t *src_bytes, int src_width, int src_height) {
-    resize_and_rgb565_to_rgb888(src_bytes, src_width, src_height, input->data.int8);
+    if(src_width == 96 && src_height == 96) {
+        rgb565_to_rgb888(src_bytes, src_width, src_height, input->data.int8);
+    }
+    else {
+        resize_and_rgb565_to_rgb888(src_bytes, src_width, src_height, input->data.int8);
+    }
 
     if (interpreter->Invoke() != kTfLiteOk) {
         printf("Invoke failed\n");
@@ -179,3 +184,33 @@ void resize_and_rgb565_to_rgb888(
         }
     }
 }
+
+void rgb565_to_rgb888(
+    const uint8_t *src,
+    int src_width,
+    int src_height,
+    int8_t *dst)
+{
+    int num_pixels = DST_W * DST_H;
+
+    for (int i = 0; i < num_pixels; i++)
+    {
+        uint8_t lo = src[i*2 + 0];
+        uint8_t hi = src[i*2 + 1];
+
+        uint16_t p = (lo << 8) | hi;   // correct ordering
+
+        uint8_t r = (p >> 11) & 0x1F;
+        uint8_t g = (p >> 5)  & 0x3F;
+        uint8_t b =  p        & 0x1F;
+
+        r = (r * 527 + 23) >> 6;
+        g = (g * 259 + 33) >> 6;
+        b = (b * 527 + 23) >> 6;
+
+        dst[i*3 + 0] = (int8_t)(r - 128);
+        dst[i*3 + 1] = (int8_t)(g - 128);
+        dst[i*3 + 2] = (int8_t)(b - 128);
+    }
+}
+

@@ -201,7 +201,7 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 }
 
 void display_task(void *args) {
-	DisplayMode display_mode = (DisplayMode)ML; 
+	DisplayMode display_mode = 0; 
     char buffer[BUFFER_SIZE];
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
@@ -210,9 +210,6 @@ void display_task(void *args) {
 	bool button0_pressed = false; 
 	bool button1_pressed = false; 
 
-	// TEMPORARY
-	vTaskDelay(pdMS_TO_TICKS(500));
-	xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to disable ML mode
     while (1) {
 		// Button press receive and debouncing 
 		// Delay acts as refresh rate delay
