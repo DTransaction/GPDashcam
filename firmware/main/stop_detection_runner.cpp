@@ -97,24 +97,15 @@ void tinyml_init(void)
     printf("TinyML initialized\n");
 }
 
-void run_stop_detection(const uint8_t *src_bytes, int src_width, int src_height) {
+int8_t run_stop_detection(const uint8_t *src_bytes, int src_width, int src_height) {
     resize_and_rgb565_to_rgb888(src_bytes, src_width, src_height, input->data.int8);
 
     if (interpreter->Invoke() != kTfLiteOk) {
         printf("Invoke failed\n");
-        return;
-        }
+        return -127;
+	}
 
-    int8_t raw_score = output->data.int8[0];
-
-    bool stop_detected = raw_score > 0;
-
-    if(stop_detected) {
-        printf("Stop detected, score: %d\n", raw_score);
-    }
-    else {
-        printf("Stop not detected, score: %d\n", raw_score);
-    }
+    return (int8_t)output->data.int8[0];
 }
 
 void resize_and_rgb565_to_rgb888(

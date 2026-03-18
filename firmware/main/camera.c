@@ -68,6 +68,10 @@ static const camera_config_t ml_camera_config = {
 	.fb_location = CAMERA_FB_IN_PSRAM
 };
 
+static inline int8_t int8_to_percent(int8_t s8) {
+	return (int8_t)((s8 + 128) * 0.3922);
+}
+
 esp_err_t init_camera() {
 	esp_err_t err = esp_camera_init(&default_camera_config);
 	if (err != ESP_OK) {
@@ -112,12 +116,14 @@ void camera_task(void *args) {
 		}
 
 		if (ml_activated) { 
-			run_stop_detection(camera_fb->buf, camera_fb->width, camera_fb->height);
+			int8_t raw_score = run_stop_detection(camera_fb->buf, camera_fb->width, camera_fb->height);
+			int8_t percent_score = int8_to_percent(raw_score); 
+			xQueueSend(camera_to_display_queue, &percent_score, 0); 
 		} else {
+			// Temporary delay to slow down camera capture 
 			vTaskDelay(pdMS_TO_TICKS(1000));
 		}
-		xQueueSendToFront(camera_to_sd_queue, &camera_fb, portMAX_DELAY); 
-		// Temporary delay to slow down camera capture 
+		xQueueSend(camera_to_sd_queue, &camera_fb, portMAX_DELAY); 
 		// ESP_LOGI(CAMERA_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 	}
 }

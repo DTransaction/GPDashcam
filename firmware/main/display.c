@@ -201,7 +201,7 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 }
 
 void display_task(void *args) {
-	DisplayMode display_mode = 1; 
+	DisplayMode display_mode = (DisplayMode)ML; 
     char buffer[BUFFER_SIZE];
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
@@ -210,6 +210,9 @@ void display_task(void *args) {
 	bool button0_pressed = false; 
 	bool button1_pressed = false; 
 
+	// TEMPORARY
+	vTaskDelay(pdMS_TO_TICKS(500));
+	xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to disable ML mode
     while (1) {
 		// Button press receive and debouncing 
 		// Delay acts as refresh rate delay
@@ -238,13 +241,13 @@ void display_task(void *args) {
 					gpio_intr_enable(CONFIG_GPIO_INPUT1);
 				}
 				if (display_mode == (DisplayMode)ML) {
-					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to disable ML mode
+					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to enable ML mode
 				}
 			}
         }
 		switch (display_mode) {
 			case ACCELEROMETER:
-				xQueueReceive(accel_to_display_queue, &accel_data, 0);
+				xQueueReceive(accel_to_display_queue, &accel_data, pdMS_TO_TICKS(500));
 				snprintf(buffer, sizeof(buffer), 
 					"A: %.2f %.2f %.2f\n"
 					"Total mag: %.2f\n",
@@ -255,7 +258,7 @@ void display_task(void *args) {
 				);
 				break;
 			case GPS: 
-				xQueueReceive(gps_to_display_queue, &gps_data, 0);
+				xQueueReceive(gps_to_display_queue, &gps_data, pdMS_TO_TICKS(500));
 				snprintf(buffer, sizeof(buffer), 
 					"Lat: %f\n"
 					"Lon: %f\n"
@@ -284,8 +287,12 @@ void display_task(void *args) {
 				);
 				break;
 			case ML: 
+				int8_t score = 0; 
+				xQueueReceive(camera_to_display_queue, &score, pdMS_TO_TICKS(500)); 
 				snprintf(buffer, sizeof(buffer),
-					"ML Mode"
+					"ML Mode\n"
+					"Stop sign score: %d",
+					score
 				);
 				break;
 			default: 

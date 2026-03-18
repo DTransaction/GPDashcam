@@ -154,7 +154,6 @@ void sd_task(void *args) {
 			}
 			fclose(file); 
 
-
 			time_end = xTaskGetTickCount(); 
 			time = (time_end - time_start) * portTICK_PERIOD_MS;
 			ESP_LOGI(SD_TAG, "%s, %zu bytes, %lums, %lu FPS", file_path, camera_fb->len, time, 1000/time); 
@@ -162,23 +161,5 @@ void sd_task(void *args) {
 			esp_camera_fb_return(camera_fb);
 			// ESP_LOGI(SD_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		}
-		// GPS data logging 
-		// if (xQueueReceive(gps_to_sd_queue, &gps_data, 0)) {
-		// 	snprintf(buffer, MAX_CHAR_SIZE, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %.02f degrees, heading %s\n", 
-		// 				gps_data.day, 
-		// 				gps_data.month, 
-		// 				gps_data.year, 
-		// 				gps_data.hour, 
-		// 				gps_data.minute, 
-		// 				gps_data.second, 
-		// 				gps_data.latitude,
-		// 				gps_data.longitude,
-		// 				gps_data.speed,
-		// 				gps_data.cog,
-		// 				gps_data.direction
-		// 				); 
-		// 	ret = append_file(GPS_FILE_PATH, buffer); 
-		// 	if (ret != ESP_OK) return;
-		// }
 	}
 }

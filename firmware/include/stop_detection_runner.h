@@ -4,7 +4,7 @@ extern "C" {
 
 void tinyml_init(void);
 
-void run_stop_detection(
+int8_t  run_stop_detection(
     const uint8_t *src_bytes,
     int src_width,
     int src_height
