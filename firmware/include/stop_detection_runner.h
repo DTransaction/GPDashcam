@@ -16,6 +16,12 @@ void resize_and_rgb565_to_rgb888(
     int src_height,
     int8_t *dst);
 
+void rgb565_to_rgb888(
+    const uint8_t *src,
+    int src_width,
+    int src_height,
+    int8_t *dst);
+
 #ifdef __cplusplus
 }
 #endif
