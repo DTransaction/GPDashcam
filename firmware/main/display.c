@@ -18,13 +18,14 @@
 #include "display.h"
 #include "global.h"
 
-#define NUM_DISPLAY_MODES 4
+#define NUM_DISPLAY_MODES 5
 
 typedef enum {
 	ACCELEROMETER,
 	GPS,
 	WIFI, 
-	ML
+	ML_FAST,
+	ML_SLOW
 } DisplayMode;
 
 // 5x7 font table (ASCII 0x20–0x7F)
@@ -205,6 +206,7 @@ void display_task(void *args) {
     char buffer[BUFFER_SIZE];
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
+	int8_t score; 
 
 	uint32_t gpio_num;
 	bool button0_pressed = false; 
@@ -216,11 +218,9 @@ void display_task(void *args) {
         if (xQueueReceive(gpio_event_queue, &gpio_num, pdMS_TO_TICKS(1000/CONFIG_REFRESH_RATE))) {
 			vTaskDelay(pdMS_TO_TICKS(CONFIG_DEBOUNCE_TIME_MS));
 			if (gpio_num) {
-				if (display_mode == (DisplayMode)ML) {
-					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to disable ML mode
-				}
+				DisplayMode previous_mode = display_mode;
 				if (gpio_num == CONFIG_GPIO_INPUT0) {
-					if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) { 
+					if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) {
 						display_mode = next_mode(display_mode); 
 						button0_pressed = true; 
 					} else if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
@@ -237,8 +237,17 @@ void display_task(void *args) {
 					}
 					gpio_intr_enable(CONFIG_GPIO_INPUT1);
 				}
-				if (display_mode == (DisplayMode)ML) {
-					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML); // Notify camera to enable ML mode
+				if (previous_mode == ML_FAST || previous_mode == ML_SLOW) { 
+					if (display_mode != ML_FAST && display_mode != ML_SLOW) { 
+						xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_OFF);
+					} else if (display_mode == ML_FAST) { 
+						xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_FAST);
+					} else if (display_mode == ML_SLOW)
+						xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_SLOW);
+				} else if (display_mode == (DisplayMode)ML_FAST) { 
+					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_FAST); 
+				} else if (display_mode == (DisplayMode)ML_SLOW) {
+					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_SLOW); 
 				}
 			}
         }
@@ -283,11 +292,18 @@ void display_task(void *args) {
 					CONFIG_ESP_WIFI_PASSWORD
 				);
 				break;
-			case ML: 
-				int8_t score = 0; 
+			case ML_FAST: 
 				xQueueReceive(camera_to_display_queue, &score, pdMS_TO_TICKS(500)); 
 				snprintf(buffer, sizeof(buffer),
-					"ML Mode\n"
+					"ML Fast Mode\n"
+					"Stop sign score: %d",
+					score
+				);
+				break;
+			case ML_SLOW: 
+				xQueueReceive(camera_to_display_queue, &score, pdMS_TO_TICKS(500)); 
+				snprintf(buffer, sizeof(buffer),
+					"ML Slow Mode\n"
 					"Stop sign score: %d",
 					score
 				);

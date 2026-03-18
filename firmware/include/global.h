@@ -6,8 +6,10 @@
 #include "driver/i2c_master.h"
 #include "esp_lcd_panel_io.h"
 
-#define INDEX_IMPACT (0) 
-#define INDEX_ML (1)
+#define INDEX_IMPACT (0)
+#define INDEX_ML_OFF (1)
+#define INDEX_ML_FAST (2)
+#define INDEX_ML_SLOW (3)
 
 extern TaskHandle_t supervisor_handle; 
 extern TaskHandle_t accel_handle; 

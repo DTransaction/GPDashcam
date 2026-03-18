@@ -42,7 +42,7 @@ static const camera_config_t default_camera_config = {
 	.fb_location = CAMERA_FB_IN_PSRAM
 };
 
-static const camera_config_t ml_camera_config = {
+static camera_config_t ml_camera_config = {
 	.pin_reset = CONFIG_CAM_PIN_RESET,
 	.pin_xclk = CONFIG_CAM_PIN_XCLK,
 	.pin_sccb_sda = CONFIG_CAM_PIN_SIOD,
@@ -91,22 +91,30 @@ void camera_task(void *args) {
 			ESP_LOGI(CAMERA_TAG, "Notified of an impact"); 
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
 		}
-		if (ulTaskNotifyTakeIndexed(INDEX_ML, pdTRUE, 0)) { 
+		if (ulTaskNotifyTakeIndexed(INDEX_ML_OFF, pdTRUE, 0)) { 
+			// Revert camera settings for normal pictures
+			ESP_LOGI(CAMERA_TAG, "Disabling ML mode"); 
+			ml_activated = false; 
 			esp_camera_return_all(); 
-			if (!ml_activated) {
-				// Configure camera settings for ML
-				ESP_LOGI(CAMERA_TAG, "Enabling ML mode"); 
-				ml_activated = true; 
-				sensor_t * s = esp_camera_sensor_get();
-				s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
-				s->set_aec_value(s, 1100);   // Lower this value to reduce exposure (0-1200)
-				esp_camera_reconfigure(&ml_camera_config); 
-			} else {
-				// Revert camera settings for normal pictures
-				ESP_LOGI(CAMERA_TAG, "Disabling ML mode"); 
-				ml_activated = false; 
-				esp_camera_reconfigure(&default_camera_config); 
-			}
+			esp_camera_reconfigure(&default_camera_config); 
+		} 
+		if (ulTaskNotifyTakeIndexed(INDEX_ML_FAST, pdTRUE, 0)) { 
+			ESP_LOGI(CAMERA_TAG, "Enabling ML fast mode"); 
+			ml_activated = true; 
+			sensor_t * s = esp_camera_sensor_get();
+			s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
+			s->set_aec_value(s, 1100);   // Lower this value to reduce exposure (0-1200)
+			ml_camera_config.frame_size = FRAMESIZE_96X96;
+			esp_camera_reconfigure(&ml_camera_config); 
+		}
+		if (ulTaskNotifyTakeIndexed(INDEX_ML_SLOW, pdTRUE, 0)) { 
+			ESP_LOGI(CAMERA_TAG, "Enabling ML slow mode"); 
+			ml_activated = true; 
+			sensor_t * s = esp_camera_sensor_get();
+			s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
+			s->set_aec_value(s, 1100);   // Lower this value to reduce exposure (0-1200)
+			ml_camera_config.frame_size = FRAMESIZE_VGA;
+			esp_camera_reconfigure(&ml_camera_config); 
 		}
 		// ESP_LOGI(CAMERA_TAG, "Capturing image...");
 		camera_fb = esp_camera_fb_get();
