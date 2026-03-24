@@ -204,15 +204,38 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 void display_task(void *args) {
 	DisplayMode display_mode = 0; 
     char buffer[BUFFER_SIZE];
+	char alert_buffer[BUFFER_SIZE]; 
 	accel_data_t accel_data; 
 	gps_data_t gps_data;
 	int8_t score; 
+	bool impact_detected = false;
+	TickType_t impact_time;
 
 	uint32_t gpio_num;
 	bool button0_pressed = false; 
 	bool button1_pressed = false; 
 
     while (1) {
+		// Check notifications
+		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) {
+			impact_detected = true; 
+			impact_time = xTaskGetTickCount(); 
+			xQueueReceive(accel_to_display_queue, &accel_data, 0);
+			snprintf(alert_buffer, sizeof(alert_buffer), 
+				"\n\n\n\n\n\n"
+				"IMPACT: %.2fG\n",
+				accel_data.total_magnitude
+			);
+		}
+		if (ulTaskNotifyTakeIndexed(INDEX_RL_CAM, pdTRUE, 0)) {
+			snprintf(buffer, sizeof(buffer), 
+				"\n\n\n\n\n\n"
+				"Red light cam: %.0f",
+				gps_data.rl_cam_distance
+			);
+			draw_string(0, 0, buffer);
+			esp_lcd_panel_draw_bitmap(*panel, 0, 0, LCD_H, LCD_V, oled_buffer);
+		}
 		// Button press receive and debouncing 
 		// Delay acts as refresh rate delay
         if (xQueueReceive(gpio_event_queue, &gpio_num, pdMS_TO_TICKS(1000/CONFIG_REFRESH_RATE))) {
@@ -268,14 +291,12 @@ void display_task(void *args) {
 				snprintf(buffer, sizeof(buffer), 
 					"Lat: %f\n"
 					"Lon: %f\n"
-					"RL cam dist: %.0fm\n"
 					"Date: %02d-%02d-%04d\n"
-					"Time: %02d:%02d:%02d"
-					"Speed: %02fkm/h"
+					"Time: %02d:%02d:%02d\n"
+					"Speed: %.0fkm/h\n"
 					"Heading: %s",
 					gps_data.longitude,
 					gps_data.latitude,
-					gps_data.rl_cam_distance,
 					gps_data.day, 
 					gps_data.month, 
 					gps_data.year,
@@ -317,6 +338,15 @@ void display_task(void *args) {
 				break; 
 		}
 		oled_clear();
+		if (impact_detected) { 
+			draw_string(0, 0, alert_buffer);
+			esp_lcd_panel_draw_bitmap(*panel, 0, 0, LCD_H, LCD_V, oled_buffer);
+			TickType_t time = xTaskGetTickCount(); 
+			if (pdTICKS_TO_MS(time - impact_time) >= 3000) {
+				impact_detected = false;
+			}
+			
+		}
 		draw_string(0, 0, buffer);
 		esp_lcd_panel_draw_bitmap(*panel, 0, 0, LCD_H, LCD_V, oled_buffer);
 		// ESP_LOGI(DISPLAY_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));

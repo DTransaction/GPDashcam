@@ -101,6 +101,7 @@ void accelerometer_task(void *args) {
 		accel_data.x = x;
 		accel_data.y = y;
 		accel_data.z = z;
+		xQueueOverwrite(accel_to_display_queue, &accel_data);
 
 		/*ESP_LOGI(ACCEL_TAG, "x=%.2f, y=%.2f, z=%.2f", (float)raw_x/128, (float)raw_y/128, (float)raw_z/128); */
 		// ESP_LOGI("ACCEL", "Queue handle: %p", accel_to_display_queue);
@@ -108,9 +109,7 @@ void accelerometer_task(void *args) {
 		if (accel_data.total_magnitude >= CONFIG_IMPACT_GFORCE_THRESHOLD) { 
 			ESP_LOGI(ACCEL_TAG, "%.2fG IMPACT DETECTED", accel_data.total_magnitude); 
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
-		} else { 
-			xQueueOverwrite(accel_to_display_queue, &accel_data);
-		}
+		} 
 		vTaskDelay(pdMS_TO_TICKS(1000/CONFIG_POLL_RATE));
 	}
 

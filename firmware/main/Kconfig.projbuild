@@ -71,7 +71,7 @@ menu "GPDashcam configuration"
 			default 2
 		config POLL_RATE
 			int "Poll rate"
-			default 4
+			default 10
 	endmenu
 	menu "Display"
 		config REFRESH_RATE

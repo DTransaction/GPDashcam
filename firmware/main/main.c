@@ -40,21 +40,34 @@ i2c_master_dev_handle_t i2c_accel_handle;
 esp_lcd_panel_handle_t *panel;
 
 void supervisor_task(void *args) { 
+	uint32_t notifications; 
 	while (1) { 
 		// ESP_LOGI("SUPERVISOR_TASK", "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
-		ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); // Block waiting for accelerometer to notify
-		ESP_LOGI(SUPERVISOR_TAG, "Suspending accel, GPS, and display"); 
-		vTaskSuspend(accel_handle); 
-		vTaskSuspend(gps_handle); 
-		vTaskSuspend(display_handle); 
-		ESP_LOGI(SUPERVISOR_TAG, "Notifying camera"); 
-		xTaskNotifyGiveIndexed(camera_handle, INDEX_IMPACT); 
-		ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); 
-		ESP_LOGI(SUPERVISOR_TAG, "Received ACK from camera"); 
-		ESP_LOGI(SUPERVISOR_TAG, "Resuming accel, GPS, and display"); 
-		vTaskResume(accel_handle); 
-		vTaskResume(gps_handle); 
-		vTaskResume(display_handle); 
+		// notifications = ulTaskNotifyTakeIndexed(INDEX_ALERTS, pdTRUE, portMAX_DELAY);
+		// ESP_LOGI(SUPERVISOR_TAG, "%d", notifications);
+		// if (notifications & (1<<INDEX_IMPACT)) { 
+		// xTaskNotifyWait(0, 0, &notifications, portMAX_DELAY);
+
+		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY)) {
+			ESP_LOGI(SUPERVISOR_TAG, "Suspending accel, GPS, and display"); 
+			vTaskSuspend(accel_handle); 
+			vTaskSuspend(gps_handle); 
+			vTaskSuspend(display_handle); 
+			ESP_LOGI(SUPERVISOR_TAG, "Notifying camera"); 
+			xTaskNotifyGiveIndexed(camera_handle, INDEX_IMPACT); 
+			ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); 
+			ESP_LOGI(SUPERVISOR_TAG, "Received ACK from camera"); 
+			xTaskNotifyGiveIndexed(display_handle, INDEX_IMPACT); 
+			ESP_LOGI(SUPERVISOR_TAG, "Resuming accel, GPS, and display"); 
+			vTaskResume(accel_handle); 
+			vTaskResume(gps_handle); 
+			vTaskResume(display_handle); 
+		}
+		// if (notifications & (1<<INDEX_RL_CAM)) { 
+		// 	ESP_LOGI(SUPERVISOR_TAG, "RL CAM ALERT");
+		// 	xTaskNotifyGiveIndexed(display_handle, INDEX_RL_CAM); 
+		// }
+		// notifications = 0;
 	}
 }
 
