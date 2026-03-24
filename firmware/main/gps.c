@@ -37,29 +37,29 @@ static uint8_t degrees_to_compass_direction(float degrees){
 	return (uint8_t)((uint16_t)((degrees + 22.5) / 45) % 8);
 }
 
-static double parse_lat_long(const char* value) {
-    double ll = strtod(value, NULL);
+static float parse_lat_long(const char* value) {
+    float ll = strtof(value, NULL);
     int deg = ((int)ll) / 100;
-    double min = ll - (deg * 100);
+    float min = ll - (deg * 100);
     ll = deg + min / 60.0f;
 	return ll;
 }
 
-static double distance_lat_lon(double lat1, double lon1, double lat2, double lon2) {
-    double lat1r = lat1 * DEG_TO_RAD;
-    double lat2r = lat2 * DEG_TO_RAD;
-    double lon1r = lon1 * DEG_TO_RAD;
-    double lon2r = lon2 * DEG_TO_RAD;
+static float distance_lat_lon(float lat1, float lon1, float lat2, float lon2) {
+    float lat1r = lat1 * DEG_TO_RAD;
+    float lat2r = lat2 * DEG_TO_RAD;
+    float lon1r = lon1 * DEG_TO_RAD;
+    float lon2r = lon2 * DEG_TO_RAD;
 
-    double x = (lon2r - lon1r) * cos((lat1r + lat2r) / 2.0);
-    double y = (lat2r - lat1r);
+    float x = (lon2r - lon1r) * cos((lat1r + lat2r) / 2.0);
+    float y = (lat2r - lat1r);
 
     return sqrt(x*x + y*y) * EARTH_RADIUS_M;
 }
 
-static double distance_to_rl_cam(double lat, double lon, coordinate_t *pois, uint8_t num_pois) {
+static float distance_to_rl_cam(float lat, float lon, coordinate_t *pois, uint8_t num_pois) {
     for (uint8_t i = 0; i < num_pois; ++i) {
-        double distance = distance_lat_lon(lat, lon, pois[i].latitude, pois[i].longitude);
+        float distance = distance_lat_lon(lat, lon, pois[i].latitude, pois[i].longitude);
 		if (distance <= CONFIG_TRAFFIC_CAMERA_DISTANCE_TRIGGER) {
 			return distance;
 		} 
@@ -138,8 +138,6 @@ void gps_task(void *args) {
 			break; 
 		}
 	}
-	coordinate_t test_coord = {45.38470127201655, -75.69780310498919};
-	rl_camera_coords[rl_camera_count++] = test_coord;
 	vQueueDelete(sd_to_gps_queue); 
 	ESP_LOGI(GPS_TAG, "Logged %d red light camera POIs", rl_camera_count);
 

@@ -20,8 +20,8 @@ static const char* direction_str[] = {
 };
 
 typedef struct { 
-	double latitude;
-	double longitude; 
+	float latitude;
+	float longitude; 
 } coordinate_t;
 
 // RMC structure
@@ -34,12 +34,12 @@ typedef struct {
     uint8_t  day;
     uint8_t  month;
     uint16_t year;
-    double    latitude;
-    double    longitude;
+    float    latitude;
+    float    longitude;
     float    speed;
     float    cog;         // course over ground
     char*    direction;   // human-readable compass direction
-	double rl_cam_distance;
+	float rl_cam_distance;
 } gps_data_t;
 
 void gps_task(void *arg);

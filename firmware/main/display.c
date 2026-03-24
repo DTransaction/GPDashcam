@@ -270,7 +270,9 @@ void display_task(void *args) {
 					"Lon: %f\n"
 					"RL cam dist: %.0fm\n"
 					"Date: %02d-%02d-%04d\n"
-					"Time: %02d:%02d:%02d", 
+					"Time: %02d:%02d:%02d"
+					"Speed: %02fkm/h"
+					"Heading: %s",
 					gps_data.longitude,
 					gps_data.latitude,
 					gps_data.rl_cam_distance,
@@ -279,7 +281,9 @@ void display_task(void *args) {
 					gps_data.year,
 					gps_data.hour, 
 					gps_data.minute, 
-					gps_data.second
+					gps_data.second,
+					gps_data.speed,
+					gps_data.direction
 				);
 				break;
 			case WIFI: 
