@@ -8,7 +8,7 @@
 #define GPS_TAG "GPS_TASK"
 
 // Direction strings (N, NE, E, SE, etc.)
-static const char* direction_str[] = {
+static const char* direction_str[8] = {
     "N",
     "NE",
     "E",
@@ -38,7 +38,7 @@ typedef struct {
     float    longitude;
     float    speed;
     float    cog;         // course over ground
-    char*    direction;   // human-readable compass direction
+    char    direction[3];   // human-readable compass direction
 	float rl_cam_distance;
 } gps_data_t;
 

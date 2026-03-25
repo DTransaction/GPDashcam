@@ -101,7 +101,7 @@ static void process_sentence(gps_data_t *gps_data, char *line) {
 					break;
 				case 8:  // course
 					gps_data->cog = strtof(token, NULL);
-					gps_data->direction = direction_str[degrees_to_compass_direction(gps_data->cog)];
+					strcpy(gps_data->direction, direction_str[degrees_to_compass_direction(gps_data->cog)]);
 					break;
 				case 9:  // date
 					strncpy(gps_data->raw_date, token, 6);
@@ -118,12 +118,12 @@ static void process_sentence(gps_data_t *gps_data, char *line) {
 
 void gps_task(void *args) {
 	gps_data_t gps_data; 
+	bool alert_rl_cam = false;
 
 	coordinate_t coord;
 	coordinate_t rl_camera_coords[NUM_RED_LIGHT_CAMERA];
 	uint8_t rl_camera_count = 0; 
 
-	char *sentence_remainder; 
 	char line[256];
 	int line_pos = 0;
 	uint8_t buffer[256];
@@ -138,6 +138,8 @@ void gps_task(void *args) {
 			break; 
 		}
 	}
+	coordinate_t test_coord = {45.359963246826574, -75.63158334575331}; 
+	rl_camera_coords[rl_camera_count++] = test_coord;
 	vQueueDelete(sd_to_gps_queue); 
 	ESP_LOGI(GPS_TAG, "Logged %d red light camera POIs", rl_camera_count);
 
@@ -152,6 +154,13 @@ void gps_task(void *args) {
 					gps_data.rl_cam_distance = distance_to_rl_cam(gps_data.latitude, gps_data.longitude, rl_camera_coords, rl_camera_count);
 					xQueueOverwrite(gps_to_display_queue, &gps_data);
 					xQueueOverwrite(gps_to_sd_queue, &gps_data);
+					if (gps_data.rl_cam_distance > 0 && (alert_rl_cam == false)) {
+						alert_rl_cam = true;
+						xTaskNotifyGiveIndexed(supervisor_handle, INDEX_RL_CAM); 
+						xTaskNotifyGiveIndexed(supervisor_handle, INDEX_WAKE_UP); 
+					} else if (gps_data.rl_cam_distance <= 0) {
+						alert_rl_cam = false;
+					}
 					// ESP_LOGI(GPS_TAG, "%02d-%02d-%04d %02d:%02d:%02d %f, %f, %fm/s, %f degrees, heading %s, RL cam dist: %2.fm", 
 					// 		gps_data.day, 
 					// 		gps_data.month, 

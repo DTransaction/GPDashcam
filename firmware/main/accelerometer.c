@@ -109,6 +109,7 @@ void accelerometer_task(void *args) {
 		if (accel_data.total_magnitude >= CONFIG_IMPACT_GFORCE_THRESHOLD) { 
 			ESP_LOGI(ACCEL_TAG, "%.2fG IMPACT DETECTED", accel_data.total_magnitude); 
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
+			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_WAKE_UP); 
 		} 
 		vTaskDelay(pdMS_TO_TICKS(1000/CONFIG_POLL_RATE));
 	}

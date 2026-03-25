@@ -40,15 +40,15 @@ i2c_master_dev_handle_t i2c_accel_handle;
 esp_lcd_panel_handle_t *panel;
 
 void supervisor_task(void *args) { 
-	uint32_t notifications; 
 	while (1) { 
 		// ESP_LOGI("SUPERVISOR_TASK", "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
-		// notifications = ulTaskNotifyTakeIndexed(INDEX_ALERTS, pdTRUE, portMAX_DELAY);
-		// ESP_LOGI(SUPERVISOR_TAG, "%d", notifications);
-		// if (notifications & (1<<INDEX_IMPACT)) { 
-		// xTaskNotifyWait(0, 0, &notifications, portMAX_DELAY);
-
-		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY)) {
+		ulTaskNotifyTakeIndexed(INDEX_WAKE_UP, pdTRUE, portMAX_DELAY);
+		
+		if (ulTaskNotifyTakeIndexed(INDEX_RL_CAM, pdTRUE, 0)) {
+			ESP_LOGI(SUPERVISOR_TAG, "RL CAM ALERT");
+			xTaskNotifyGiveIndexed(display_handle, INDEX_RL_CAM); 
+		}
+		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) {
 			ESP_LOGI(SUPERVISOR_TAG, "Suspending accel, GPS, and display"); 
 			vTaskSuspend(accel_handle); 
 			vTaskSuspend(gps_handle); 
@@ -62,12 +62,7 @@ void supervisor_task(void *args) {
 			vTaskResume(accel_handle); 
 			vTaskResume(gps_handle); 
 			vTaskResume(display_handle); 
-		}
-		// if (notifications & (1<<INDEX_RL_CAM)) { 
-		// 	ESP_LOGI(SUPERVISOR_TAG, "RL CAM ALERT");
-		// 	xTaskNotifyGiveIndexed(display_handle, INDEX_RL_CAM); 
-		// }
-		// notifications = 0;
+		} 
 	}
 }
 
@@ -87,11 +82,11 @@ void app_main(void) {
 	init_accel(&i2c_accel_handle);
 	init_gpio(); 
 
-	ESP_ERROR_CHECK(nvs_flash_init());
-	ESP_ERROR_CHECK(esp_netif_init());
-	ESP_ERROR_CHECK(esp_event_loop_create_default());
-	wifi_init_softap();
-	ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
+	// ESP_ERROR_CHECK(nvs_flash_init());
+	// ESP_ERROR_CHECK(esp_netif_init());
+	// ESP_ERROR_CHECK(esp_event_loop_create_default());
+	// wifi_init_softap();
+	// ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
 
 	accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
 	gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 
