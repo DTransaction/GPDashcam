@@ -18,12 +18,14 @@
 #include "display.h"
 #include "global.h"
 
-#define NUM_DISPLAY_MODES 5
+#define NUM_DISPLAY_MODES 6
 
 typedef enum {
+    // LIVE_STREAM,
 	ACCELEROMETER,
 	GPS,
 	WIFI, 
+    LIVE_STREAM,
 	ML_FAST,
 	ML_SLOW
 } DisplayMode;
@@ -249,9 +251,23 @@ void display_task(void *args) {
 				} else if (display_mode == (DisplayMode)ML_SLOW) {
 					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_SLOW); 
 				}
+                if(display_mode == (DisplayMode)LIVE_STREAM) {
+                    xTaskNotifyGiveIndexed(camera_handle, INDEX_LIVE_STREAM);
+                }
 			}
         }
 		switch (display_mode) {
+            // case LIVE_STREAM: 
+			// 	snprintf(buffer, sizeof(buffer),
+            //     	"Live Stream Mode\n"
+			// 		"SSID: %s\nPass: %s\n"
+			// 		"To download files,\n"
+			// 		"open your browser and\n"
+			// 		"go to 192.168.4.1", 
+			// 		CONFIG_ESP_WIFI_SSID, 
+			// 		CONFIG_ESP_WIFI_PASSWORD
+			// 	);
+			// 	break;
 			case ACCELEROMETER:
 				xQueueReceive(accel_to_display_queue, &accel_data, pdMS_TO_TICKS(500));
 				snprintf(buffer, sizeof(buffer), 
@@ -284,6 +300,17 @@ void display_task(void *args) {
 				break;
 			case WIFI: 
 				snprintf(buffer, sizeof(buffer),
+					"SSID: %s\nPass: %s\n"
+					"To download files,\n"
+					"open your browser and\n"
+					"go to 192.168.4.1", 
+					CONFIG_ESP_WIFI_SSID, 
+					CONFIG_ESP_WIFI_PASSWORD
+				);
+				break;
+            case LIVE_STREAM: 
+				snprintf(buffer, sizeof(buffer),
+                	"Live Stream Mode\n"
 					"SSID: %s\nPass: %s\n"
 					"To download files,\n"
 					"open your browser and\n"

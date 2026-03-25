@@ -10,6 +10,7 @@
 #define INDEX_ML_OFF (1)
 #define INDEX_ML_FAST (2)
 #define INDEX_ML_SLOW (3)
+#define INDEX_LIVE_STREAM (4)
 
 extern TaskHandle_t supervisor_handle; 
 extern TaskHandle_t accel_handle; 

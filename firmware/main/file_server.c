@@ -25,6 +25,10 @@
 #include "esp_vfs.h"
 #include "esp_http_server.h"
 
+#include "esp_camera.h"
+#include "camera.h"
+#include "freertos/semphr.h"
+
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX 47
 
@@ -69,6 +73,34 @@ static esp_err_t favicon_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+esp_err_t stream_handler(httpd_req_t *req) {
+    httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
+
+    while (1) {
+        if (xSemaphoreTake(frame_mutex, portMAX_DELAY)) {
+            if (latest_frame) {
+                char part_buf[128];
+                int len = snprintf(part_buf, sizeof(part_buf),
+                                   "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n",
+                                   latest_frame->len);
+
+                if (httpd_resp_send_chunk(req, part_buf, len) != ESP_OK ||
+                    httpd_resp_send_chunk(req, (const char *)latest_frame->buf, latest_frame->len) != ESP_OK ||
+                    httpd_resp_send_chunk(req, "\r\n", 2) != ESP_OK) {
+
+                    xSemaphoreGive(frame_mutex);
+                        ESP_LOGW("STREAM", "Client disconnected");
+                    break;
+                }
+            }
+            xSemaphoreGive(frame_mutex);
+        }
+        vTaskDelay(pdMS_TO_TICKS(50)); // ~20 FPS
+    }
+
+    return ESP_OK;
+}
+
 /* Send HTTP response with a run-time generated html consisting of
  * a list of all files and folders under the requested path.
  * In case of SPIFFS this returns empty list when path is any
@@ -97,6 +129,13 @@ static esp_err_t http_resp_dir_html(httpd_req_t *req, const char *dirpath)
 
     /* Send HTML file header */
     httpd_resp_sendstr_chunk(req, "<!DOCTYPE html><html><body>");
+
+    // Add camera stream display
+    httpd_resp_sendstr_chunk(req,
+        "<h2>Live Camera Stream</h2>"
+        "<img src=\"/stream\" width=\"480\" height=\"360\" />"
+    );
+
 
     /* Get handle to embedded file upload script */
     extern const unsigned char upload_script_start[] asm("_binary_upload_script_html_start");
@@ -473,6 +512,14 @@ esp_err_t example_start_file_server(const char *base_path)
         return ESP_FAIL;
     }
 
+    httpd_uri_t stream_uri = {
+    .uri      = "/stream",
+    .method   = HTTP_GET,
+    .handler  = stream_handler,
+    .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &stream_uri);
+
     /* URI handler for getting uploaded files */
     httpd_uri_t file_download = {
         .uri       = "/*",  // Match all URIs of type /path/to/file
@@ -499,6 +546,5 @@ esp_err_t example_start_file_server(const char *base_path)
         .user_ctx  = server_data    // Pass server data as context
     };
     httpd_register_uri_handler(server, &file_delete);
-
     return ESP_OK;
 }

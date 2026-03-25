@@ -19,6 +19,9 @@
 #include "sd.h"
 #include "uart.h"
 
+#include "esp_heap_caps.h"
+#include "esp_system.h"
+
 #define MAIN_TAG "MAIN_TASK"
 #define SUPERVISOR_TAG "SUPERVISOR_TASK"
 
@@ -39,24 +42,54 @@ i2c_master_bus_handle_t i2c_bus;
 i2c_master_dev_handle_t i2c_accel_handle;
 esp_lcd_panel_handle_t *panel;
 
+void print_memory_stats()
+{
+    ESP_LOGI(MAIN_TAG, "=== MEMORY STATS ===\n");
+
+    ESP_LOGI(MAIN_TAG, "Internal RAM free: %d bytes\n",
+           heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+
+    ESP_LOGI(MAIN_TAG, "Internal RAM largest block: %d bytes\n",
+           heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+
+    ESP_LOGI(MAIN_TAG, "PSRAM free: %d bytes\n",
+           heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+
+    ESP_LOGI(MAIN_TAG, "PSRAM largest block: %d bytes\n",
+           heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+
+    ESP_LOGI(MAIN_TAG, "Minimum free heap ever: %d bytes\n",
+           esp_get_minimum_free_heap_size());
+
+    ESP_LOGI(MAIN_TAG, "====================\n");
+}
+
 void supervisor_task(void *args) { 
+	char buffer[512];
+
 	while (1) { 
 		// ESP_LOGI("SUPERVISOR_TASK", "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
-		ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); // Block waiting for accelerometer to notify
-		ESP_LOGI(SUPERVISOR_TAG, "Suspending accel, GPS, and display"); 
-		vTaskSuspend(accel_handle); 
-		vTaskSuspend(gps_handle); 
-		vTaskSuspend(display_handle); 
-		ESP_LOGI(SUPERVISOR_TAG, "Notifying camera"); 
-		xTaskNotifyGiveIndexed(camera_handle, INDEX_IMPACT); 
-		ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); 
-		ESP_LOGI(SUPERVISOR_TAG, "Received ACK from camera"); 
-		ESP_LOGI(SUPERVISOR_TAG, "Resuming accel, GPS, and display"); 
-		vTaskResume(accel_handle); 
-		vTaskResume(gps_handle); 
-		vTaskResume(display_handle); 
+		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, pdMS_TO_TICKS(10000))) { // Block waiting for accelerometer to notify
+			ESP_LOGI(SUPERVISOR_TAG, "Suspending accel, GPS, and display"); 
+			vTaskSuspend(accel_handle); 
+			vTaskSuspend(gps_handle); 
+			vTaskSuspend(display_handle); 
+			ESP_LOGI(SUPERVISOR_TAG, "Notifying camera"); 
+			xTaskNotifyGiveIndexed(camera_handle, INDEX_IMPACT); 
+			ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, portMAX_DELAY); 
+			ESP_LOGI(SUPERVISOR_TAG, "Received ACK from camera"); 
+			ESP_LOGI(SUPERVISOR_TAG, "Resuming accel, GPS, and display"); 
+			vTaskResume(accel_handle); 
+			vTaskResume(gps_handle); 
+			vTaskResume(display_handle); 
+		} else {
+			print_memory_stats();
+			vTaskGetRunTimeStats(buffer);
+			printf("%s\n", buffer);
+		}
 	}
 }
+
 
 void app_main(void) {
 	panel = malloc(sizeof(esp_lcd_panel_handle_t));
