@@ -1,14 +1,5 @@
 menu "GPDashcam configuration"
 	menu "Camera"
-		config XCLK_FREQ_MHZ
-			int "CLK_FREQ_MHZ"
-			default 20
-		config JPEG_QUALITY
-			int "JPEG_QUALITY"
-			default 20
-		config FB_COUNT
-			int "FB_COUNT"
-			default 3
 		menu "Camera pins"
 			config CAM_PIN_RESET   
 				int "CAM_PIN_RESET" 

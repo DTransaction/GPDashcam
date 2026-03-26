@@ -32,12 +32,12 @@ static const camera_config_t default_camera_config = {
 	.pin_vsync = CONFIG_CAM_PIN_VSYNC,
 	.pin_href = CONFIG_CAM_PIN_HREF,
 	.pin_pclk = CONFIG_CAM_PIN_PCLK,
-	.xclk_freq_hz = CONFIG_XCLK_FREQ_MHZ * 1000000,
+	.xclk_freq_hz = 20000000,
 	.ledc_timer = LEDC_TIMER_0,
 	.ledc_channel = LEDC_CHANNEL_0,
 	.pixel_format = PIXFORMAT_JPEG,
 	.frame_size = FRAMESIZE_HD,
-	.jpeg_quality = CONFIG_JPEG_QUALITY,
+	.jpeg_quality = 10,
 	.fb_count = 3,
 	.fb_location = CAMERA_FB_IN_PSRAM
 };
