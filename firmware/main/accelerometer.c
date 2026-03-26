@@ -5,7 +5,7 @@
 #include <math.h>
 #include "global.h"
 
-#define I2C_TOOL_TIMEOUT_VALUE_MS (50)
+#define I2C_TOOL_TIMEOUT_VALUE_MS (1000)
 
 void init_accel(i2c_master_dev_handle_t *i2c_accel_handle) {
 	// Initialize accelerometer and add to bus 
@@ -18,22 +18,19 @@ void init_accel(i2c_master_dev_handle_t *i2c_accel_handle) {
     }
 }
 
-static uint8_t i2cget(i2c_master_dev_handle_t i2c_dev_handle, uint8_t data_addr, uint8_t *data) {
+static void i2cget(i2c_master_dev_handle_t i2c_dev_handle, uint8_t data_addr, uint8_t *data) {
     uint8_t len = 1;
 
     esp_err_t ret = i2c_master_transmit_receive(i2c_dev_handle, (uint8_t*)&data_addr, 1, data, len, I2C_TOOL_TIMEOUT_VALUE_MS);
     if (ret == ESP_OK) {
     } else if (ret == ESP_ERR_TIMEOUT) {
         ESP_LOGW(ACCEL_TAG, "Bus is busy");
-		return 1; 
     } else {
         ESP_LOGW(ACCEL_TAG, "Read failed");
-		return 1; 
     }
-    return 0;
 }
 
-static uint8_t i2cset(i2c_master_dev_handle_t i2c_dev_handle, uint8_t data_addr, uint8_t data) {
+static void i2cset(i2c_master_dev_handle_t i2c_dev_handle, uint8_t data_addr, uint8_t data) {
     int len = 1;
 
     uint8_t *register_data = malloc(len + 1);
@@ -44,14 +41,11 @@ static uint8_t i2cset(i2c_master_dev_handle_t i2c_dev_handle, uint8_t data_addr,
 		ESP_LOGI(ACCEL_TAG, "Write OK");
 	} else if (ret == ESP_ERR_TIMEOUT) {
         ESP_LOGW(ACCEL_TAG, "Bus is busy");
-		return 1; 
     } else {
         ESP_LOGW(ACCEL_TAG, "Write Failed");
-		return 1; 
     }
 
     free(register_data);
-    return 0;
 }
 
 void accelerometer_task(void *args) { 
@@ -105,12 +99,12 @@ void accelerometer_task(void *args) {
 
 		/*ESP_LOGI(ACCEL_TAG, "x=%.2f, y=%.2f, z=%.2f", (float)raw_x/128, (float)raw_y/128, (float)raw_z/128); */
 		// ESP_LOGI("ACCEL", "Queue handle: %p", accel_to_display_queue);
-		// ESP_LOGI(ACCEL_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		if (accel_data.total_magnitude >= CONFIG_IMPACT_GFORCE_THRESHOLD) { 
 			ESP_LOGI(ACCEL_TAG, "%.2fG IMPACT DETECTED", accel_data.total_magnitude); 
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
 			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_WAKE_UP); 
 		} 
+		// ESP_LOGI(ACCEL_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		vTaskDelay(pdMS_TO_TICKS(1000/CONFIG_POLL_RATE));
 	}
 

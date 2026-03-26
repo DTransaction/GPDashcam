@@ -42,7 +42,33 @@ static const camera_config_t default_camera_config = {
 	.fb_location = CAMERA_FB_IN_PSRAM
 };
 
-static camera_config_t ml_camera_config = {
+static const camera_config_t ml_slow_camera_config = {
+	.pin_reset = CONFIG_CAM_PIN_RESET,
+	.pin_xclk = CONFIG_CAM_PIN_XCLK,
+	.pin_sccb_sda = CONFIG_CAM_PIN_SIOD,
+	.pin_sccb_scl = CONFIG_CAM_PIN_SIOC,
+	.pin_d7 = CONFIG_CAM_PIN_D7,
+	.pin_d6 = CONFIG_CAM_PIN_D6,
+	.pin_d5 = CONFIG_CAM_PIN_D5,
+	.pin_d4 = CONFIG_CAM_PIN_D4,
+	.pin_d3 = CONFIG_CAM_PIN_D3,
+	.pin_d2 = CONFIG_CAM_PIN_D2,
+	.pin_d1 = CONFIG_CAM_PIN_D1,
+	.pin_d0 = CONFIG_CAM_PIN_D0,
+	.pin_vsync = CONFIG_CAM_PIN_VSYNC,
+	.pin_href = CONFIG_CAM_PIN_HREF,
+	.pin_pclk = CONFIG_CAM_PIN_PCLK,
+	.xclk_freq_hz = 20000000,
+	.ledc_timer = LEDC_TIMER_0,
+	.ledc_channel = LEDC_CHANNEL_0,
+	.pixel_format = PIXFORMAT_RGB565,
+	.frame_size = FRAMESIZE_VGA,
+	.jpeg_quality = 10,
+	.fb_count = 2,
+	.fb_location = CAMERA_FB_IN_PSRAM
+};
+
+static const camera_config_t ml_fast_camera_config = {
 	.pin_reset = CONFIG_CAM_PIN_RESET,
 	.pin_xclk = CONFIG_CAM_PIN_XCLK,
 	.pin_sccb_sda = CONFIG_CAM_PIN_SIOD,
@@ -64,7 +90,7 @@ static camera_config_t ml_camera_config = {
 	.pixel_format = PIXFORMAT_RGB565,
 	.frame_size = FRAMESIZE_96X96,
 	.jpeg_quality = 10,
-	.fb_count = 1,
+	.fb_count = 2,
 	.fb_location = CAMERA_FB_IN_PSRAM
 };
 
@@ -73,7 +99,7 @@ static inline int8_t int8_to_percent(int8_t s8) {
 }
 
 esp_err_t init_camera() {
-	esp_err_t err = esp_camera_init(&ml_camera_config);
+	esp_err_t err = esp_camera_init(&default_camera_config);
 	if (err != ESP_OK) {
 		ESP_LOGE(CAMERA_TAG, "Camera init failed: %s", esp_err_to_name(err));
 	} else {
@@ -81,10 +107,10 @@ esp_err_t init_camera() {
 		ESP_LOGI(CAMERA_TAG, "Camera initialized successfully");
 	}
 	sensor_t * s = esp_camera_sensor_get();
-	s->set_exposure_ctrl(s, 0);  // 0 = disable , 1 = enable
-	s->set_awb_gain(s, 0); 
-	s->set_aec_value(s, 10);   // Lower this value to reduce exposure (0-1200)
-	s->set_hmirror(s, 0);
+	// s->set_exposure_ctrl(s, 1);  // 0 = disable , 1 = enable
+	// s->set_awb_gain(s, 0); 
+	s->set_aec_value(s, 1100);   // Lower this value to reduce exposure (0-1200)
+	s->set_hmirror(s, 1);
 	return err;
 }
 void camera_task(void *args) { 
@@ -92,34 +118,37 @@ void camera_task(void *args) {
 	bool ml_activated = false; 
 
 	while(1) { 
-		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) { 
-			ESP_LOGI(CAMERA_TAG, "Notified of an impact"); 
-			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
-		}
 		if (ulTaskNotifyTakeIndexed(INDEX_ML_OFF, pdTRUE, 0)) { 
 			// Revert camera settings for normal pictures
 			ESP_LOGI(CAMERA_TAG, "Disabling ML mode"); 
 			ml_activated = false; 
 			esp_camera_return_all(); 
-			esp_camera_reconfigure(&default_camera_config); 
+			// xTaskNotifyGiveIndexed(sd_handle, INDEX_ML_OFF); 
+			esp_camera_deinit();
+			esp_camera_init(&default_camera_config);
+			// esp_camera_reconfigure(&default_camera_config);
 		} 
 		if (ulTaskNotifyTakeIndexed(INDEX_ML_FAST, pdTRUE, 0)) { 
 			ESP_LOGI(CAMERA_TAG, "Enabling ML fast mode"); 
 			ml_activated = true; 
-			sensor_t * s = esp_camera_sensor_get();
-			s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
-			s->set_aec_value(s, 300);   // Lower this value to reduce exposure (0-1200)
-			ml_camera_config.frame_size = FRAMESIZE_96X96;
-			esp_camera_reconfigure(&ml_camera_config); 
+			esp_camera_return_all(); 
+			// xTaskNotifyGiveIndexed(sd_handle, INDEX_ML_FAST); 
+			esp_camera_deinit();
+			esp_camera_init(&ml_fast_camera_config);
+			// esp_camera_reconfigure(&ml_fast_camera_config);
 		}
 		if (ulTaskNotifyTakeIndexed(INDEX_ML_SLOW, pdTRUE, 0)) { 
 			ESP_LOGI(CAMERA_TAG, "Enabling ML slow mode"); 
 			ml_activated = true; 
-			sensor_t * s = esp_camera_sensor_get();
-			s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
-			s->set_aec_value(s, 300);   // Lower this value to reduce exposure (0-1200)
-			ml_camera_config.frame_size = FRAMESIZE_VGA;
-			esp_camera_reconfigure(&ml_camera_config); 
+			esp_camera_return_all(); 
+			// xTaskNotifyGiveIndexed(sd_handle, INDEX_ML_SLOW); 
+			esp_camera_deinit();
+			esp_camera_init(&ml_slow_camera_config);
+			// esp_camera_reconfigure(&ml_slow_camera_config);
+		}
+		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) { 
+			ESP_LOGI(CAMERA_TAG, "Notified of an impact"); 
+			xTaskNotifyGiveIndexed(supervisor_handle, INDEX_IMPACT); 
 		}
 		camera_fb = esp_camera_fb_get();
 		if (!camera_fb) {
@@ -127,13 +156,15 @@ void camera_task(void *args) {
 			return;
 		}
 
-		xQueueSend(camera_to_sd_queue, &camera_fb, 0); 
+		xQueueSend(camera_to_sd_queue, &camera_fb, portMAX_DELAY); 
 
 		if (ml_activated) { 
 			int8_t raw_score = run_stop_detection(camera_fb->buf, camera_fb->width, camera_fb->height);
 			int8_t percent_score = int8_to_percent(raw_score); 
-			xQueueSend(camera_to_display_queue, &percent_score, 0); 
+			xQueueSend(camera_to_display_queue, &percent_score, pdMS_TO_TICKS(5)); 
+			vTaskDelay(pdMS_TO_TICKS(10));
+			// esp_camera_fb_return(camera_fb);
 		} 
-		ESP_LOGI(CAMERA_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
+		// ESP_LOGI(CAMERA_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 	}
 }

@@ -5,6 +5,7 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+#include <stdbool.h>
 #include "esp_vfs_fat.h"
 #include "driver/sdmmc_host.h"
 
@@ -127,6 +128,7 @@ void sd_task(void *args) {
 	gps_data_t gps_data; 
 	camera_fb_t *camera_fb = NULL; 
 	uint16_t img_count = 0; 
+	bool ml_activated = false;
 
 	char buffer[MAX_CHAR_SIZE];
 	const char *GPS_FILE_PATH = MOUNT_POINT"/gps_data.log"; 
@@ -140,6 +142,9 @@ void sd_task(void *args) {
 
 	if (!camera_to_sd_queue) ESP_LOGE(SD_TAG, "Camera to SD queue creation failed"); 
 	while (1) { 
+		if (ulTaskNotifyTakeIndexed(INDEX_ML_OFF, pdTRUE, 0)) ml_activated = false;
+		if (ulTaskNotifyTakeIndexed(INDEX_ML_SLOW, pdTRUE, 0)) ml_activated = true;
+		if (ulTaskNotifyTakeIndexed(INDEX_ML_FAST, pdTRUE, 0)) ml_activated = true;
 		if (xQueueReceive(camera_to_sd_queue, &camera_fb, portMAX_DELAY)) {
 			sprintf(file_path, "%s/image%d.jpg", MOUNT_POINT, img_count++);
 			FILE *file = fopen(file_path, "wb"); 
@@ -159,7 +164,11 @@ void sd_task(void *args) {
 			ESP_LOGI(SD_TAG, "%s, %zu bytes, %lums, %lu FPS", file_path, camera_fb->len, time, 1000/time); 
 			time_start = xTaskGetTickCount(); 
 			esp_camera_fb_return(camera_fb);
-			// ESP_LOGI(SD_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
+
+			// if (!ml_activated) {
+			// 	esp_camera_fb_return(camera_fb);
+			// }
+			ESP_LOGI(SD_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		}
 	}
 }

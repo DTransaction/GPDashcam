@@ -127,14 +127,41 @@ static const uint8_t font5x7[96][5] = {
     {0x02,0x01,0x02,0x04,0x02}, // '~'
 };
 
-static DisplayMode next_mode(DisplayMode mode) { 
-	if (mode >= NUM_DISPLAY_MODES) return 0;
-	else return (mode + 1);
+static void notify_camera_ml(DisplayMode previous_mode, DisplayMode next_mode) {
+	if (previous_mode == ML_FAST || previous_mode == ML_SLOW) { 
+		if (next_mode != ML_FAST && next_mode != ML_SLOW) { 
+			xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_OFF);
+		} else if (next_mode == ML_FAST) { 
+			xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_FAST);
+		} else if (next_mode == ML_SLOW)
+			xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_SLOW);
+	} else if (next_mode == (DisplayMode)ML_FAST) { 
+		xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_FAST); 
+	} else if (next_mode == (DisplayMode)ML_SLOW) {
+		xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_SLOW); 
+	}
 }
 
-static DisplayMode prev_mode(DisplayMode mode) { 
-	if (mode == 0) return NUM_DISPLAY_MODES - 1;
-	else return (mode - 1);
+static DisplayMode get_next_mode(DisplayMode current_mode) { 
+	DisplayMode next_mode;
+	if (current_mode >= NUM_DISPLAY_MODES) {
+		next_mode = 0;
+	} else {
+		next_mode = current_mode + 1;
+	}
+	notify_camera_ml(current_mode, next_mode);
+	return next_mode;
+}
+
+static DisplayMode get_prev_mode(DisplayMode current_mode) { 
+	DisplayMode next_mode;
+	if (current_mode <= 0) {
+		next_mode = NUM_DISPLAY_MODES - 1;
+	} else {
+		next_mode = current_mode - 1;
+	}
+	notify_camera_ml(current_mode, next_mode);
+	return next_mode;
 }
 
 void init_display(esp_lcd_panel_handle_t *panel) { 
@@ -237,10 +264,9 @@ void display_task(void *args) {
         if (xQueueReceive(gpio_event_queue, &gpio_num, pdMS_TO_TICKS(1000/CONFIG_REFRESH_RATE))) {
 			vTaskDelay(pdMS_TO_TICKS(CONFIG_DEBOUNCE_TIME_MS));
 			if (gpio_num) {
-				DisplayMode previous_mode = display_mode;
 				if (gpio_num == CONFIG_GPIO_INPUT0) {
 					if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 0) && !button0_pressed) {
-						display_mode = next_mode(display_mode); 
+						display_mode = get_next_mode(display_mode); 
 						button0_pressed = true; 
 					} else if ((gpio_get_level(CONFIG_GPIO_INPUT0) == 1) && button0_pressed) { 
 						button0_pressed = false; 
@@ -249,24 +275,12 @@ void display_task(void *args) {
 				}
 				else if (gpio_num == CONFIG_GPIO_INPUT1) {
 					if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 0) && !button1_pressed) { 
-						display_mode = prev_mode(display_mode); 
+						display_mode = get_prev_mode(display_mode); 
 						button1_pressed = 1; 
 					} else if ((gpio_get_level(CONFIG_GPIO_INPUT1) == 1) && button1_pressed) { 
 						button1_pressed = 0; 
 					}
 					gpio_intr_enable(CONFIG_GPIO_INPUT1);
-				}
-				if (previous_mode == ML_FAST || previous_mode == ML_SLOW) { 
-					if (display_mode != ML_FAST && display_mode != ML_SLOW) { 
-						xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_OFF);
-					} else if (display_mode == ML_FAST) { 
-						xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_FAST);
-					} else if (display_mode == ML_SLOW)
-						xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_SLOW);
-				} else if (display_mode == (DisplayMode)ML_FAST) { 
-					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_FAST); 
-				} else if (display_mode == (DisplayMode)ML_SLOW) {
-					xTaskNotifyGiveIndexed(camera_handle, INDEX_ML_SLOW); 
 				}
 			}
         }
