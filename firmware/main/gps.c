@@ -12,8 +12,9 @@
 #include "global.h"
 
 #define DEG_TO_RAD (M_PI / 180.0)
-#define KNOTS_TO_M_PER_S 0.514444
-#define EARTH_RADIUS_M 6371000.0
+#define KNOTS_TO_M_PER_S (0.514444)
+#define KNOTS_TO_KM_PER_H (1.8519984)
+#define EARTH_RADIUS_M (6371000.0)
 #define NUM_RMC_FIELDS (10)
 #define NUM_RED_LIGHT_CAMERA 128
 
@@ -97,7 +98,7 @@ static void process_sentence(gps_data_t *gps_data, char *line) {
 					}
 					break;
 				case 7:  // speed
-					gps_data->speed = strtof(token, NULL) * KNOTS_TO_M_PER_S;
+					gps_data->speed = strtof(token, NULL) * KNOTS_TO_KM_PER_H;
 					break;
 				case 8:  // course
 					gps_data->cog = strtof(token, NULL);
@@ -138,8 +139,6 @@ void gps_task(void *args) {
 			break; 
 		}
 	}
-	coordinate_t test_coord = {45.359963246826574, -75.63158334575331}; 
-	rl_camera_coords[rl_camera_count++] = test_coord;
 	vQueueDelete(sd_to_gps_queue); 
 	ESP_LOGI(GPS_TAG, "Logged %d red light camera POIs", rl_camera_count);
 

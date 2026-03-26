@@ -73,13 +73,18 @@ static inline int8_t int8_to_percent(int8_t s8) {
 }
 
 esp_err_t init_camera() {
-	esp_err_t err = esp_camera_init(&default_camera_config);
+	esp_err_t err = esp_camera_init(&ml_camera_config);
 	if (err != ESP_OK) {
 		ESP_LOGE(CAMERA_TAG, "Camera init failed: %s", esp_err_to_name(err));
 	} else {
 		tinyml_init();
 		ESP_LOGI(CAMERA_TAG, "Camera initialized successfully");
 	}
+	sensor_t * s = esp_camera_sensor_get();
+	s->set_exposure_ctrl(s, 0);  // 0 = disable , 1 = enable
+	s->set_awb_gain(s, 0); 
+	s->set_aec_value(s, 10);   // Lower this value to reduce exposure (0-1200)
+	s->set_hmirror(s, 0);
 	return err;
 }
 void camera_task(void *args) { 
@@ -103,7 +108,7 @@ void camera_task(void *args) {
 			ml_activated = true; 
 			sensor_t * s = esp_camera_sensor_get();
 			s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
-			s->set_aec_value(s, 1100);   // Lower this value to reduce exposure (0-1200)
+			s->set_aec_value(s, 300);   // Lower this value to reduce exposure (0-1200)
 			ml_camera_config.frame_size = FRAMESIZE_96X96;
 			esp_camera_reconfigure(&ml_camera_config); 
 		}
@@ -112,26 +117,23 @@ void camera_task(void *args) {
 			ml_activated = true; 
 			sensor_t * s = esp_camera_sensor_get();
 			s->set_exposure_ctrl(s, 0); // 0 = Disable Auto Exposure, 1 = Enable
-			s->set_aec_value(s, 1100);   // Lower this value to reduce exposure (0-1200)
+			s->set_aec_value(s, 300);   // Lower this value to reduce exposure (0-1200)
 			ml_camera_config.frame_size = FRAMESIZE_VGA;
 			esp_camera_reconfigure(&ml_camera_config); 
 		}
-		// ESP_LOGI(CAMERA_TAG, "Capturing image...");
 		camera_fb = esp_camera_fb_get();
 		if (!camera_fb) {
 			ESP_LOGE(CAMERA_TAG, "Failed to get frame buffer");
 			return;
 		}
 
+		xQueueSend(camera_to_sd_queue, &camera_fb, 0); 
+
 		if (ml_activated) { 
 			int8_t raw_score = run_stop_detection(camera_fb->buf, camera_fb->width, camera_fb->height);
 			int8_t percent_score = int8_to_percent(raw_score); 
 			xQueueSend(camera_to_display_queue, &percent_score, 0); 
-		} else {
-			// Temporary delay to slow down camera capture 
-			vTaskDelay(pdMS_TO_TICKS(1000));
-		}
-		xQueueSend(camera_to_sd_queue, &camera_fb, portMAX_DELAY); 
-		// ESP_LOGI(CAMERA_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
+		} 
+		ESP_LOGI(CAMERA_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 	}
 }

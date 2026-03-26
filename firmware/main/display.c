@@ -202,7 +202,7 @@ static void draw_string(uint8_t x, uint8_t y, const char *str) {
 }
 
 void display_task(void *args) {
-	DisplayMode display_mode = GPS; 
+	DisplayMode display_mode = 0; 
     char buffer[BUFFER_SIZE];
 	char alert_buffer[BUFFER_SIZE]; 
 	accel_data_t accel_data; 

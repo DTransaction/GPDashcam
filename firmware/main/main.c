@@ -41,7 +41,7 @@ esp_lcd_panel_handle_t *panel;
 
 void supervisor_task(void *args) { 
 	while (1) { 
-		// ESP_LOGI("SUPERVISOR_TASK", "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
+		ESP_LOGI("SUPERVISOR_TASK", "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		ulTaskNotifyTakeIndexed(INDEX_WAKE_UP, pdTRUE, portMAX_DELAY);
 		
 		if (ulTaskNotifyTakeIndexed(INDEX_RL_CAM, pdTRUE, 0)) {
@@ -82,11 +82,11 @@ void app_main(void) {
 	init_accel(&i2c_accel_handle);
 	init_gpio(); 
 
-	// ESP_ERROR_CHECK(nvs_flash_init());
-	// ESP_ERROR_CHECK(esp_netif_init());
-	// ESP_ERROR_CHECK(esp_event_loop_create_default());
-	// wifi_init_softap();
-	// ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
+	ESP_ERROR_CHECK(nvs_flash_init());
+	ESP_ERROR_CHECK(esp_netif_init());
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	wifi_init_softap();
+	ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
 
 	accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
 	gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 
@@ -104,17 +104,17 @@ void app_main(void) {
 	if (!camera_to_display_queue) ESP_LOGE(MAIN_TAG, "Camera to display queue creation failed"); 
 	if (!gpio_event_queue) ESP_LOGE(MAIN_TAG, "GPIO event queue creation failed"); 
 
-	xTaskCreatePinnedToCore(supervisor_task, SUPERVISOR_TAG, 4096, NULL, 6, &supervisor_handle, 1);
+	xTaskCreatePinnedToCore(supervisor_task, SUPERVISOR_TAG, 4096, NULL, 7, &supervisor_handle, 1);
 	ESP_LOGI(MAIN_TAG, "Supervisor task created");
-	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, NULL, 3, &display_handle, 1);
+	xTaskCreatePinnedToCore(display_task, DISPLAY_TAG, 4096, NULL, 5, &display_handle, 1);
 	ESP_LOGI(MAIN_TAG, "Display task created");
-	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 4500, NULL, 3, &accel_handle, 1); 
+	xTaskCreatePinnedToCore(accelerometer_task, ACCEL_TAG, 4500, NULL, 4, &accel_handle, 1); 
 	ESP_LOGI(MAIN_TAG, "Accelerometer task created");
 	xTaskCreatePinnedToCore(gps_task, GPS_TAG, 6500, NULL, 3, &gps_handle, 1);
 	ESP_LOGI(MAIN_TAG, "GPS task created");
 	xTaskCreatePinnedToCore(camera_task, CAMERA_TAG, 8000, NULL, 5, &camera_handle, 0); 
 	ESP_LOGI(MAIN_TAG, "Camera task created");
-	xTaskCreatePinnedToCore(sd_task, SD_TAG, 8000, NULL, 6, &sd_handle, 0);
+	xTaskCreatePinnedToCore(sd_task, SD_TAG, 8000, NULL, 6, &sd_handle, 1);
 	ESP_LOGI(MAIN_TAG, "SD task created");
 
 	vTaskSuspend(NULL);
