@@ -7,6 +7,7 @@
 */
 #include <stdbool.h>
 #include "esp_vfs_fat.h"
+#include "esp_timer.h"
 #include "driver/sdmmc_host.h"
 
 #include "sd.h"
@@ -134,11 +135,12 @@ void sd_task(void *args) {
 	const char *GPS_FILE_PATH = MOUNT_POINT"/gps_data.log"; 
 	const char *RED_LIGHT_CAMERA_FILE_PATH = MOUNT_POINT"/Red_Light_Camera_Locations.csv"; 
 	char file_path[50]; 
-	TickType_t time_start = 1;
-	TickType_t time_end = 1;
-	uint32_t time;
+	int64_t time_start = 0; 
+	int64_t time_end = 0; 
+	int64_t time_ms = 0; 
 
 	read_file(RED_LIGHT_CAMERA_FILE_PATH);
+	esp_timer_early_init();
 
 	if (!camera_to_sd_queue) ESP_LOGE(SD_TAG, "Camera to SD queue creation failed"); 
 	while (1) { 
@@ -159,16 +161,16 @@ void sd_task(void *args) {
 			}
 			fclose(file); 
 
-			time_end = xTaskGetTickCount(); 
-			time = (time_end - time_start) * portTICK_PERIOD_MS;
-			ESP_LOGI(SD_TAG, "%s, %zu bytes, %lums, %lu FPS", file_path, camera_fb->len, time, 1000/time); 
-			time_start = xTaskGetTickCount(); 
+			time_end = esp_timer_get_time(); 
+			time_ms = (time_end - time_start) / 1000;
+			ESP_LOGI(SD_TAG, "%s, %zu bytes, %lldms, %.1f FPS", file_path, camera_fb->len, time_ms, (float)(1000.0f/time_ms)); 
+			time_start = esp_timer_get_time(); 
 			esp_camera_fb_return(camera_fb);
 
 			// if (!ml_activated) {
 			// 	esp_camera_fb_return(camera_fb);
 			// }
-			ESP_LOGI(SD_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
+			// ESP_LOGI(SD_TAG, "High water mark: %d", uxTaskGetStackHighWaterMark(NULL));
 		}
 	}
 }

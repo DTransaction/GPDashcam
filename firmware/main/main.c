@@ -82,11 +82,11 @@ void app_main(void) {
 	init_accel(&i2c_accel_handle);
 	init_gpio(); 
 
-	ESP_ERROR_CHECK(nvs_flash_init());
-	ESP_ERROR_CHECK(esp_netif_init());
-	ESP_ERROR_CHECK(esp_event_loop_create_default());
-	wifi_init_softap();
-	ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
+	// ESP_ERROR_CHECK(nvs_flash_init());
+	// ESP_ERROR_CHECK(esp_netif_init());
+	// ESP_ERROR_CHECK(esp_event_loop_create_default());
+	// wifi_init_softap();
+	// ESP_ERROR_CHECK(example_start_file_server(MOUNT_POINT));
 
 	accel_to_display_queue = xQueueCreate(1, sizeof(accel_data_t)); 
 	gps_to_display_queue = xQueueCreate(1, sizeof(gps_data_t)); 

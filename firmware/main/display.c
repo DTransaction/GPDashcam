@@ -246,9 +246,9 @@ void display_task(void *args) {
     while (1) {
 		// Check notifications
 		if (ulTaskNotifyTakeIndexed(INDEX_IMPACT, pdTRUE, 0)) {
+			xQueueReceive(accel_to_display_queue, &accel_data, 0);
 			alert_impact = true; 
 			alert_time = xTaskGetTickCount(); 
-			xQueueReceive(accel_to_display_queue, &accel_data, 0);
 			snprintf(alert_buffer, sizeof(alert_buffer), 
 				"IMPACT: %.2fG",
 				accel_data.total_magnitude
