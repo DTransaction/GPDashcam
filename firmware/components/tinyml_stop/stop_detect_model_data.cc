@@ -19,6 +19,11 @@ limitations under the License.
 // This form is useful for compiling into a binary for devices that don't have a
 // file system.
 
+// This model was trained on subsets of the following three datasets:
+// https://www.kaggle.com/datasets/mmontiel/tiny-lisa-traffic-sign-detection-dataset
+// https://www.kaggle.com/datasets/maricinnamon/caltech101-stop-sign-images-annotations/data 
+// https://images.cv/dataset/stop-sign-image-classification-dataset
+
 #include "stop_detect_model_data.h"
 
 // Keep model aligned to 8 bytes to guarantee aligned 64-bit accesses.
